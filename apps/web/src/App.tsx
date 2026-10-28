@@ -145,14 +145,7 @@ export const App: React.FC = () => {
             </CapabilityRoute>
           }
         />
-        <Route
-          path="menu"
-          element={
-            <CapabilityRoute module="menu.digital" moduleName="Carta y Menú Digital">
-              <AdminCatalogPage />
-            </CapabilityRoute>
-          }
-        />
+        <Route path="menu" element={<AdminCatalogPage />} />
         <Route
           path="inventory"
           element={
