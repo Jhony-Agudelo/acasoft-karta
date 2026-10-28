@@ -1,0 +1,243 @@
+// Prisma Schema para Restaurante SaaS
+// Alineado con DEFINICION_TECNICA.md (v2.4.0) y FASE_01_FUNDACION_Y_NUCLEO_SAAS.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// 1. TENANCY, MARCA Y SUCURSALES
+// -----------------------------------------------------------------------------
+
+model Tenant {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String
+  slug                String   @unique
+  status              String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  plan_id             String   @default("PLAN_STARTER_WHATSAPP")
+  tax_profile_mode    String   @default("FINAL_PRICE_NO_BREAKDOWN") // FINAL_PRICE_NO_BREAKDOWN | TAX_INCLUDED_DISCRIMINATED | BASE_PLUS_TAX
+  default_tax_type    String   @default("NONE") // NONE | INC | IVA | EXEMPT
+  default_tax_rate_bp Int      @default(0)
+  created_at          DateTime @default(now()) @db.Timestamptz
+
+  brand_settings   BrandSettings?
+  branches         Branch[]
+  memberships      Membership[]
+  module_settings  TenantModuleSetting[]
+  channel_policies BranchChannelPolicy[]
+  audit_events     AuditEvent[]
+
+  @@map("tenants")
+}
+
+model BrandSettings {
+  tenant_id       String   @id @db.Uuid
+  logo_url        String?
+  primary_color   String   @default("#E11D48")
+  secondary_color String   @default("#1E293B")
+  cover_url       String?
+  description     String?
+  public_domain   String?  @unique
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_settings")
+}
+
+model Branch {
+  id                   String   @id @default(uuid()) @db.Uuid
+  tenant_id            String   @db.Uuid
+  name                 String
+  slug                 String
+  address              String
+  timezone             String   @default("America/Bogota")
+  phone_whatsapp_e164  String
+  operating_hours_json Json     @default("[]")
+  status               String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  created_at           DateTime @default(now()) @db.Timestamptz
+
+  tenant           Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  channel_policies BranchChannelPolicy[]
+  module_settings  TenantModuleSetting[]
+  audit_events     AuditEvent[]
+
+  @@unique([tenant_id, slug])
+  @@map("branches")
+}
+
+// -----------------------------------------------------------------------------
+// 2. IDENTIDAD, ROLES Y MEMBRESÍAS
+// -----------------------------------------------------------------------------
+
+model User {
+  id                         String    @id @default(uuid()) @db.Uuid
+  email                      String    @unique
+  password_hash              String
+  phone                      String
+  name                       String
+  status                     String    @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
+  mfa_enabled                Boolean   @default(false)
+  must_change_password       Boolean   @default(false)
+  invite_or_reset_token_hash String?   @db.VarChar(128)
+  invite_or_reset_expires_at DateTime? @db.Timestamptz
+  created_at                 DateTime  @default(now()) @db.Timestamptz
+
+  memberships  Membership[]
+  audit_events AuditEvent[]
+
+  @@map("users")
+}
+
+model Role {
+  key  String @id @db.VarChar(64)
+  name String
+
+  permissions RolePermission[]
+  memberships Membership[]
+
+  @@map("roles")
+}
+
+model Permission {
+  key         String @id @db.VarChar(64)
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  role_key       String @db.VarChar(64)
+  permission_key String @db.VarChar(64)
+
+  role       Role       @relation(fields: [role_key], references: [key], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_key], references: [key], onDelete: Cascade)
+
+  @@id([role_key, permission_key])
+  @@map("role_permissions")
+}
+
+model Membership {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenant_id    String   @db.Uuid
+  user_id      String   @db.Uuid
+  role_key     String   @db.VarChar(64)
+  branch_scope String[] @default([]) // Array de UUID de sucursales autorizadas (vacío o null autoriza todas)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now()) @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [role_key], references: [key], onDelete: Restrict)
+
+  @@unique([tenant_id, user_id, role_key])
+  @@map("memberships")
+}
+
+// -----------------------------------------------------------------------------
+// 3. CAPACIDADES MODULARES Y POLÍTICAS DE CANAL
+// -----------------------------------------------------------------------------
+
+model Module {
+  key            String   @id @db.VarChar(64)
+  name           String
+  depends_on_all String[] @default([])
+  depends_on_any String[] @default([])
+  is_core        Boolean  @default(false)
+  is_post_mvp    Boolean  @default(false)
+
+  entitlements    PlanEntitlement[]
+  tenant_settings TenantModuleSetting[]
+
+  @@map("modules")
+}
+
+model PlanEntitlement {
+  plan_id     String @db.VarChar(64)
+  module_key  String @db.VarChar(64)
+  limits_json Json   @default("{}")
+
+  module Module @relation(fields: [module_key], references: [key], onDelete: Cascade)
+
+  @@id([plan_id, module_key])
+  @@map("plan_entitlements")
+}
+
+model TenantModuleSetting {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenant_id  String   @db.Uuid
+  branch_id  String?  @db.Uuid
+  module_key String   @db.VarChar(64)
+  enabled    Boolean  @default(true)
+  config_json Json    @default("{}")
+  updated_by String?  @db.Uuid
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  tenant Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  module Module  @relation(fields: [module_key], references: [key], onDelete: Restrict)
+
+  @@unique([tenant_id, branch_id, module_key])
+  @@map("tenant_module_settings")
+}
+
+model OperatingProfile {
+  key                            String   @id @db.VarChar(64)
+  name                           String
+  module_keys                    String[] @default([])
+  default_pickup_delivery_policy String   @default("NONE") // NONE | OFFLINE_ONLY
+  default_config_json            Json     @default("{}")
+
+  @@map("operating_profiles")
+}
+
+model BranchChannelPolicy {
+  id                                 String   @id @default(uuid()) @db.Uuid
+  tenant_id                          String   @db.Uuid
+  branch_id                          String   @db.Uuid
+  fulfillment_type                   String   @db.VarChar(32) // PICKUP | DELIVERY | DINE_IN
+  enabled                            Boolean  @default(true)
+  payment_policy                     String   @default("NONE") @db.VarChar(32) // NONE | OFFLINE_ONLY
+  require_payment_before_preparation Boolean  @default(false)
+  payment_instructions_json          Json?
+  active_status_flow                 String[] @default([])
+  tracking_enabled                   Boolean  @default(true)
+  whatsapp_number_e164               String?  @db.VarChar(32)
+  require_table_pin                  Boolean  @default(false)
+  unprocessed_expiry_minutes         Int      @default(240)
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, branch_id, fulfillment_type])
+  @@map("branch_channel_policies")
+}
+
+// -----------------------------------------------------------------------------
+// 4. AUDITORÍA (SIN PII NI SECRETOS)
+// -----------------------------------------------------------------------------
+
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenant_id     String   @db.Uuid
+  branch_id     String?  @db.Uuid
+  actor_id      String?  @db.Uuid
+  action        String   @db.VarChar(128)
+  entity_type   String   @db.VarChar(64)
+  entity_id     String   @db.VarChar(128)
+  occurred_at   DateTime @default(now()) @db.Timestamptz
+  metadata_json Json     @default("{}")
+
+  tenant Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  actor  User?   @relation(fields: [actor_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, occurred_at(sort: Desc)])
+  @@map("audit_events")
+}

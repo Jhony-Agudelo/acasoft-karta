@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: restaurante_saas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: restaurante_saas
+      POSTGRES_USER: restaurante_owner
+      POSTGRES_PASSWORD: restaurante_owner_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-runtime-user.sql:/docker-entrypoint-initdb.d/01-init-runtime-user.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U restaurante_owner -d restaurante_saas"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
