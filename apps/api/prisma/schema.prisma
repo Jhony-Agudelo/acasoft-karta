@@ -35,9 +35,16 @@ model Tenant {
   categories       Category[]
   products         Product[]
   product_variants ProductVariant[]
-  modifier_groups  ModifierGroup[]
-  modifier_options ModifierOption[]
-  qr_code_links    QrCodeLink[]
+  modifier_groups        ModifierGroup[]
+  modifier_options       ModifierOption[]
+  qr_code_links          QrCodeLink[]
+  customers              Customer[]
+  delivery_zones         DeliveryZone[]
+  delivery_addresses     DeliveryAddress[]
+  branch_order_sequences BranchOrderSequence[]
+  orders                 Order[]
+  order_items            OrderItem[]
+  order_status_events    OrderStatusEvent[]
 
   @@map("tenants")
 }
@@ -72,8 +79,11 @@ model Branch {
   channel_policies BranchChannelPolicy[]
   module_settings  TenantModuleSetting[]
   audit_events     AuditEvent[]
-  menus            Menu[]
-  qr_code_links    QrCodeLink[]
+  menus                  Menu[]
+  qr_code_links          QrCodeLink[]
+  delivery_zones         DeliveryZone[]
+  branch_order_sequences BranchOrderSequence[]
+  orders                 Order[]
 
   @@unique([tenant_id, slug])
   @@map("branches")
@@ -311,6 +321,7 @@ model Product {
   category        Category               @relation(fields: [category_id], references: [id], onDelete: Cascade)
   variants        ProductVariant[]
   modifier_groups ProductModifierGroup[]
+  order_items     OrderItem[]
 
   @@index([tenant_id, category_id, status, sort_order])
   @@map("products")
@@ -393,5 +404,173 @@ model QrCodeLink {
 
   @@index([tenant_id, branch_id, is_active])
   @@map("qr_code_links")
+}
+
+// -----------------------------------------------------------------------------
+// 5. MOTOR DE PEDIDOS, COBERTURA, ANTIFRAUDE Y LEY 1581 (FASE 03A)
+// -----------------------------------------------------------------------------
+
+model Customer {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenant_id          String    @db.Uuid
+  name               String    @db.VarChar(150)
+  phone_e164         String    @db.VarChar(48)
+  privacy_consent_at DateTime  @db.Timestamptz(6)
+  is_blocked         Boolean   @default(false)
+  blocked_reason     String?   @db.Text
+  blocked_at         DateTime? @db.Timestamptz(6)
+  blocked_phone_hmac String?   @db.VarChar(64)
+  anonymized_at      DateTime? @db.Timestamptz(6)
+  last_order_at      DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant             Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  addresses          DeliveryAddress[]
+  orders             Order[]
+
+  @@unique([tenant_id, phone_e164], name: "uq_customers_tenant_phone")
+  @@index([tenant_id, is_blocked], name: "idx_customers_tenant_blocked")
+  @@map("customers")
+}
+
+model DeliveryZone {
+  id                            String   @id @default(uuid()) @db.Uuid
+  tenant_id                     String   @db.Uuid
+  branch_id                     String   @db.Uuid
+  name                          String   @db.VarChar(120)
+  polygon_or_neighborhoods_json Json     @db.JsonB
+  delivery_fee_cop              Int      @default(0)
+  min_order_cop                 Int      @default(0)
+  estimated_minutes_min         Int      @default(30)
+  estimated_minutes_max         Int      @default(50)
+  is_active                     Boolean  @default(true)
+  created_at                    DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant                        Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch                        Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, branch_id, is_active], name: "idx_delivery_zones_branch_active")
+  @@map("delivery_zones")
+}
+
+model DeliveryAddress {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenant_id       String   @db.Uuid
+  customer_id     String?  @db.Uuid
+  address_line    String   @db.VarChar(255)
+  neighborhood    String   @db.VarChar(120)
+  reference_notes String?  @db.Text
+  city            String   @default("Colombia") @db.VarChar(100)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant          Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  customer        Customer? @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, customer_id], name: "idx_delivery_addresses_customer")
+  @@map("delivery_addresses")
+}
+
+model BranchOrderSequence {
+  tenant_id     String   @db.Uuid
+  branch_id     String   @db.Uuid
+  sequence_date String   @db.VarChar(10) // Formato YYYY-MM-DD en la zona horaria de la sucursal
+  last_value    Int      @default(100)   // Inicia en 100 para que el primer pedido del día sea #A101
+
+  tenant        Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch        Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@id([tenant_id, branch_id, sequence_date])
+  @@map("branch_order_sequences")
+}
+
+model Order {
+  id                                 String    @id @default(uuid()) @db.Uuid
+  tenant_id                          String    @db.Uuid
+  branch_id                          String    @db.Uuid
+  order_code                         String    @db.VarChar(16)
+  origin                             String    @db.VarChar(24)
+  fulfillment_type                   String    @db.VarChar(24)
+  status                             String    @db.VarChar(32)
+  payment_policy                     String    @db.VarChar(24)
+  require_payment_before_preparation Boolean   @default(false)
+  payment_status                     String    @db.VarChar(24)
+  customer_id                        String?   @db.Uuid
+  customer_snapshot_json             Json      @db.JsonB
+  table_id                           String?   @db.Uuid
+  dining_account_id                  String?   @db.Uuid
+  public_token                       String    @unique @db.VarChar(64)
+  public_token_expires_at            DateTime? @db.Timestamptz(6)
+  idempotency_key                    String?   @db.VarChar(64)
+  subtotal_products_cop              Int
+  discount_total_cop                 Int       @default(0)
+  delivery_fee_cop                   Int       @default(0)
+  tax_total_cop                      Int       @default(0)
+  tip_cop                            Int       @default(0)
+  grand_total_cop                    Int
+  paid_total_cop                     Int       @default(0)
+  uncollected_amount_cop             Int       @default(0)
+  resolution_type                    String?   @db.VarChar(24)
+  resolution_reason                  String?   @db.Text
+  resolved_by                        String?   @db.Uuid
+  resolved_at                        DateTime? @db.Timestamptz(6)
+  tax_summary_snapshot_json          Json      @db.JsonB
+  notes                              String?   @db.Text
+  is_locked                          Boolean   @default(false)
+  processed_at                       DateTime? @db.Timestamptz(6)
+  processed_by                       String?   @db.Uuid
+  created_at                         DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant                             Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch                             Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  customer                           Customer?          @relation(fields: [customer_id], references: [id])
+  items                              OrderItem[]
+  status_events                      OrderStatusEvent[]
+
+  @@unique([tenant_id, idempotency_key], name: "uq_orders_tenant_idempotency")
+  @@index([tenant_id, branch_id, status, created_at(sort: Desc)], name: "idx_orders_panel")
+  @@index([tenant_id, customer_id, status], name: "idx_orders_customer_active")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                      String   @id @default(uuid()) @db.Uuid
+  tenant_id               String   @db.Uuid
+  order_id                String   @db.Uuid
+  product_id              String?  @db.Uuid
+  product_snapshot_json   Json     @db.JsonB
+  quantity                Int
+  unit_price_cop          Int
+  discount_cop            Int      @default(0)
+  modifiers_snapshot_json Json     @db.JsonB
+  tax_snapshot_json       Json     @db.JsonB
+  line_total_cop          Int
+  station_key             String?  @db.VarChar(48)
+  status                  String   @default("PENDING") @db.VarChar(24)
+  notes                   String?  @db.Text
+
+  tenant                  Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  order                   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product                 Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, order_id], name: "idx_order_items_order")
+  @@map("order_items")
+}
+
+model OrderStatusEvent {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenant_id           String   @db.Uuid
+  order_id            String   @db.Uuid
+  from_status         String?  @db.VarChar(32)
+  to_status           String   @db.VarChar(32)
+  actor_id            String?  @db.Uuid
+  occurred_at         DateTime @default(now()) @db.Timestamptz(6)
+  reason              String?  @db.Text
+  visible_to_customer Boolean  @default(true)
+
+  tenant              Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  order               Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, order_id, occurred_at], name: "idx_order_status_events_order")
+  @@map("order_status_events")
 }
 
