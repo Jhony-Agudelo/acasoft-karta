@@ -29,11 +29,17 @@ export const DashboardPage: React.FC = () => {
   const { settings } = useBrandStore();
   const { capabilities, operatingProfile, hasModule, activeFulfillments } = useBranchCapabilities();
 
-  const { data: auditEvents = [] } = useQuery<any[]>({
+  const { data: auditData } = useQuery<any>({
     queryKey: ['recent-audit-events'],
     queryFn: () => apiClient.get('/admin/audit-events?limit=5'),
     enabled: !!user,
   });
+
+  const auditEvents: any[] = Array.isArray(auditData)
+    ? auditData
+    : Array.isArray(auditData?.items)
+    ? auditData.items
+    : [];
 
   const activeModulesCount = Object.values(capabilities).filter(Boolean).length;
 
@@ -233,7 +239,7 @@ export const DashboardPage: React.FC = () => {
                   <span className="text-stone-500 font-mono text-[11px]">{ev.entity_type}</span>
                 </div>
                 <span className="text-stone-400 text-[11px]">
-                  {new Date(ev.created_at).toLocaleTimeString('es-CO')}
+                  {new Date(ev.occurred_at || ev.created_at || Date.now()).toLocaleTimeString('es-CO')}
                 </span>
               </div>
             ))}

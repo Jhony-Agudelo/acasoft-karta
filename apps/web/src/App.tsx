@@ -22,10 +22,12 @@ import {
   Boxes,
   Users2,
 } from 'lucide-react';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export const App: React.FC = () => {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       {/* Rutas Públicas */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -180,5 +182,6 @@ export const App: React.FC = () => {
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
-  );
+  </ErrorBoundary>
+);
 };
