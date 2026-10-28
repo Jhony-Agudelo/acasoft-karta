@@ -13,10 +13,10 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@restaurante-saas/shared": ["../../packages/shared/src/index.ts"]
+      "@restaurante-saas/shared": ["../../packages/shared/dist/index.d.ts"]
     },
     "incremental": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "test/**/*", "prisma/**/*"]
+  "include": ["src/**/*"]
 }

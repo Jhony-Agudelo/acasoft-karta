@@ -3,6 +3,7 @@
   "version": "2.4.0",
   "private": true,
   "scripts": {
+    "dev": "nest start --watch",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "start": "nest start",
