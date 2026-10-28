@@ -13,6 +13,7 @@ import { CapabilitiesModule } from './modules/capabilities/capabilities.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { OrderingModule } from './modules/ordering/ordering.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -38,6 +39,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     CatalogModule,
     DeliveryModule,
     OrderingModule,
+    NotificationsModule,
   ],
   providers: [
     {

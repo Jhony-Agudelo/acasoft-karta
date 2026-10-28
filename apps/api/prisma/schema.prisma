@@ -45,6 +45,7 @@ model Tenant {
   orders                 Order[]
   order_items            OrderItem[]
   order_status_events    OrderStatusEvent[]
+  order_edits            OrderEdit[]
 
   @@map("tenants")
 }
@@ -525,6 +526,7 @@ model Order {
   customer                           Customer?          @relation(fields: [customer_id], references: [id])
   items                              OrderItem[]
   status_events                      OrderStatusEvent[]
+  edits                              OrderEdit[]
 
   @@unique([tenant_id, idempotency_key], name: "uq_orders_tenant_idempotency")
   @@index([tenant_id, branch_id, status, created_at(sort: Desc)], name: "idx_orders_panel")
@@ -573,4 +575,22 @@ model OrderStatusEvent {
   @@index([tenant_id, order_id, occurred_at], name: "idx_order_status_events_order")
   @@map("order_status_events")
 }
+
+model OrderEdit {
+  id                   String   @id @default(uuid()) @db.Uuid
+  tenant_id            String   @db.Uuid
+  order_id             String   @db.Uuid
+  actor_id             String?  @db.Uuid
+  occurred_at          DateTime @default(now()) @db.Timestamptz(6)
+  before_snapshot_json Json     @db.JsonB
+  after_snapshot_json  Json     @db.JsonB
+  reason               String?  @db.Text
+
+  tenant               Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  order                Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, order_id, occurred_at(sort: Desc)], name: "idx_order_edits_tenant_order")
+  @@map("order_edits")
+}
+
 
