@@ -10,6 +10,7 @@ import { IdentityAccessModule } from './modules/identity-access/identity-access.
 import { AuditModule } from './modules/audit/audit.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { CapabilitiesModule } from './modules/capabilities/capabilities.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantContextGuard } from './common/guards/tenant-context.guard';
@@ -30,6 +31,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     AuditModule,
     TenancyModule,
     CapabilitiesModule,
+    CatalogModule,
   ],
   providers: [
     {
