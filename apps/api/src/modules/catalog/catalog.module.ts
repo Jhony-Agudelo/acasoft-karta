@@ -9,6 +9,9 @@ import { CatalogImportService } from './catalog-import.service';
 import { CatalogImportController } from './catalog-import.controller';
 import { QrCodeService } from './qr-code.service';
 import { QrCodeAdminController } from './qr-code-admin.controller';
+import { PublicCatalogService } from './public-catalog.service';
+import { PublicCatalogController } from './public-catalog.controller';
+import { OpenGraphController } from './opengraph.controller';
 
 @Module({
   imports: [DatabaseModule, AuditModule],
@@ -17,18 +20,22 @@ import { QrCodeAdminController } from './qr-code-admin.controller';
     CatalogAdminController,
     CatalogImportController,
     QrCodeAdminController,
+    PublicCatalogController,
+    OpenGraphController,
   ],
   providers: [
     TaxProfileService,
     CatalogAdminService,
     CatalogImportService,
     QrCodeService,
+    PublicCatalogService,
   ],
   exports: [
     TaxProfileService,
     CatalogAdminService,
     CatalogImportService,
     QrCodeService,
+    PublicCatalogService,
   ],
 })
 export class CatalogModule {}

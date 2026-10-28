@@ -6,6 +6,8 @@ import {
   Body,
   Query,
   UsePipes,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { QrCodeService } from './qr-code.service';
 import { CurrentUser, AuthenticatedUserPayload } from '../../common/decorators/current-user.decorator';
@@ -37,14 +39,19 @@ export class QrCodeAdminController {
     return this.qrCodeService.createQrCode(user.tenantId, user.id, branchId, dto);
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post('qr-codes/:qrId/revoke')
   @RequirePermissions('branches:manage')
   async revokeQrCode(
     @CurrentUser() user: AuthenticatedUserPayload,
     @Param('qrId') qrId: string,
     @Query('replaceWithNew') replaceWithNew?: string,
+    @Body('generate_replacement') generateReplacementBody?: boolean,
   ) {
-    const replace = replaceWithNew === 'true' || replaceWithNew === '1';
+    const replace =
+      generateReplacementBody === true ||
+      replaceWithNew === 'true' ||
+      replaceWithNew === '1';
     return this.qrCodeService.revokeQrCode(user.tenantId, user.id, qrId, replace);
   }
 }

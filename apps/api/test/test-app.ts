@@ -28,7 +28,9 @@ export async function createTestApp(): Promise<{
 
   const app = moduleFixture.createNestApplication();
   app.use(cookieParser('test_cookie_secret'));
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['r/(.*)'],
+  });
 
   await app.init();
   const prisma = app.get(PrismaService);

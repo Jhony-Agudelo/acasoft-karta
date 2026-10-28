@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -212,31 +213,39 @@ export class CatalogAdminService {
     });
   }
 
-  async getProductById(tenantId: string, productId: string) {
-    return this.prisma.withTenant(tenantId, async (tx) => {
-      const product = await tx.product.findUnique({
-        where: { id: productId },
-        include: {
-          category: true,
-          variants: { orderBy: { sort_order: 'asc' } },
-          modifier_groups: {
-            orderBy: { sort_order: 'asc' },
-            include: {
-              group: {
-                include: {
-                  options: { orderBy: { sort_order: 'asc' } },
-                },
+  private async fetchProductDetails(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    productId: string,
+  ) {
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      include: {
+        category: true,
+        variants: { orderBy: { sort_order: 'asc' } },
+        modifier_groups: {
+          orderBy: { sort_order: 'asc' },
+          include: {
+            group: {
+              include: {
+                options: { orderBy: { sort_order: 'asc' } },
               },
             },
           },
         },
-      });
+      },
+    });
 
-      if (!product || product.tenant_id !== tenantId) {
-        throw new NotFoundException('Producto no encontrado.');
-      }
+    if (!product || product.tenant_id !== tenantId) {
+      throw new NotFoundException('Producto no encontrado.');
+    }
 
-      return product;
+    return product;
+  }
+
+  async getProductById(tenantId: string, productId: string) {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      return this.fetchProductDetails(tx, tenantId, productId);
     });
   }
 
@@ -309,7 +318,7 @@ export class CatalogAdminService {
         metadata: { name: product.name, price_cop: product.price_cop },
       });
 
-      return this.getProductById(tenantId, product.id);
+      return this.fetchProductDetails(tx, tenantId, product.id);
     });
   }
 
@@ -372,7 +381,7 @@ export class CatalogAdminService {
         metadata: { before: existing, after: updated },
       });
 
-      return this.getProductById(tenantId, productId);
+      return this.fetchProductDetails(tx, tenantId, productId);
     });
   }
 
@@ -426,20 +435,28 @@ export class CatalogAdminService {
     });
   }
 
+  private async fetchModifierGroupDetails(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    groupId: string,
+  ) {
+    const group = await tx.modifierGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        options: { orderBy: { sort_order: 'asc' } },
+      },
+    });
+
+    if (!group || group.tenant_id !== tenantId) {
+      throw new NotFoundException('Grupo de modificadores no encontrado.');
+    }
+
+    return group;
+  }
+
   async getModifierGroupById(tenantId: string, groupId: string) {
     return this.prisma.withTenant(tenantId, async (tx) => {
-      const group = await tx.modifierGroup.findUnique({
-        where: { id: groupId },
-        include: {
-          options: { orderBy: { sort_order: 'asc' } },
-        },
-      });
-
-      if (!group || group.tenant_id !== tenantId) {
-        throw new NotFoundException('Grupo de modificadores no encontrado.');
-      }
-
-      return group;
+      return this.fetchModifierGroupDetails(tx, tenantId, groupId);
     });
   }
 
@@ -533,7 +550,7 @@ export class CatalogAdminService {
         metadata: { before: existing, after: updated },
       });
 
-      return this.getModifierGroupById(tenantId, groupId);
+      return this.fetchModifierGroupDetails(tx, tenantId, groupId);
     });
   }
 

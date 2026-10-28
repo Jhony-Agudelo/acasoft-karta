@@ -145,8 +145,7 @@ export class QrCodeService {
       }
 
       return {
-        success: true,
-        revoked,
+        ...revoked,
         replacement,
       };
     });

@@ -27,8 +27,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-request-id', 'idempotency-key'],
   });
 
-  // Prefijo global de API /api/v1
-  app.setGlobalPrefix('api/v1');
+  // Prefijo global de API /api/v1 (excluyendo rutas de OpenGraph /r/...)
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['r/(.*)'],
+  });
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
