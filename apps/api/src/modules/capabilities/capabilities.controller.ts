@@ -42,6 +42,19 @@ export class CapabilitiesController {
     return this.capabilitiesService.getBranchCapabilities(resolvedTenantId || '', branchId);
   }
 
+  @Get('admin/capabilities')
+  async getAdminCapabilities(@CurrentUser() user: AuthenticatedUserPayload) {
+    return this.capabilitiesService.getBranchCapabilities(user.tenantId);
+  }
+
+  @Get('admin/branches/:branchId/capabilities')
+  async getAdminBranchCapabilities(
+    @CurrentUser() user: AuthenticatedUserPayload,
+    @Param('branchId') branchId: string,
+  ) {
+    return this.capabilitiesService.getBranchCapabilities(user.tenantId, branchId);
+  }
+
   @Get('admin/modules')
   @RequirePermissions('modules:read')
   async getTenantModules(@CurrentUser() user: AuthenticatedUserPayload) {
