@@ -11,6 +11,9 @@ import { AuditModule } from './modules/audit/audit.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { CapabilitiesModule } from './modules/capabilities/capabilities.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { OrderingModule } from './modules/ordering/ordering.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantContextGuard } from './common/guards/tenant-context.guard';
@@ -25,6 +28,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
       envFilePath: ['.env', '../../.env'],
     }),
     LoggerModule.forRoot(pinoLoggerOptions),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     HealthModule,
     IdentityAccessModule,
@@ -32,6 +36,8 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     TenancyModule,
     CapabilitiesModule,
     CatalogModule,
+    DeliveryModule,
+    OrderingModule,
   ],
   providers: [
     {
