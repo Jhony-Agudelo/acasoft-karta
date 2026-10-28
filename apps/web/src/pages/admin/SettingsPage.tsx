@@ -21,15 +21,17 @@ import {
   ShieldAlert,
   Copy,
   Check,
+  Calculator,
 } from 'lucide-react';
 import { generateStaffInvitationLink, RoleKey } from '@restaurante-saas/shared';
+import { TaxProfileForm } from '../../features/admin-settings/tax-profile-form';
 
 export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentBranchId, user } = useAuthStore();
   const { settings: brandSettings, setBrandSettings } = useBrandStore();
 
-  const [activeTab, setActiveTab] = useState<'brand' | 'branches' | 'payments' | 'team'>('brand');
+  const [activeTab, setActiveTab] = useState<'brand' | 'branches' | 'tax' | 'payments' | 'team'>('brand');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -163,6 +165,7 @@ export const SettingsPage: React.FC = () => {
           {[
             { id: 'brand', label: 'Marca & Tematización', icon: Palette },
             { id: 'branches', label: 'Sedes y Sucursales', icon: Store },
+            { id: 'tax', label: 'Régimen Tributario & Precios', icon: Calculator },
             { id: 'payments', label: 'Políticas de Pago y Canales', icon: Wallet },
             { id: 'team', label: 'Equipo y Permisos', icon: Users2 },
           ].map((tab) => {
@@ -352,6 +355,9 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* TAB: RÉGIMEN TRIBUTARIO & PRECIOS */}
+      {activeTab === 'tax' && <TaxProfileForm />}
 
       {/* TAB 3: PAGOS Y CANALES */}
       {activeTab === 'payments' && (

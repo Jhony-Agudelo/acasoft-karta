@@ -11,6 +11,10 @@ import { CapabilityRoute } from './components/auth/CapabilityRoute';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { CapabilitiesPage } from './pages/admin/CapabilitiesPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
+import { AdminCatalogPage } from './features/admin-catalog/AdminCatalogPage';
+import { QrCodeCenterPage } from './features/admin-catalog/QrCodeCenterPage';
+import { StorefrontPage } from './features/public-storefront/StorefrontPage';
+import { QrResolverPage } from './features/public-storefront/QrResolverPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   UtensilsCrossed,
@@ -32,6 +36,9 @@ export const App: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/r/:restaurantSlug" element={<StorefrontPage />} />
+      <Route path="/r/:restaurantSlug/b/:branchSlug" element={<StorefrontPage />} />
+      <Route path="/q/:qrToken" element={<QrResolverPage />} />
 
       {/* Rutas Protegidas sin Layout Principal */}
       <Route
@@ -64,6 +71,8 @@ export const App: React.FC = () => {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="admin/capabilities" element={<CapabilitiesPage />} />
         <Route path="admin/settings" element={<SettingsPage />} />
+        <Route path="admin/menu" element={<AdminCatalogPage />} />
+        <Route path="admin/qr-codes" element={<QrCodeCenterPage />} />
 
         {/* Módulos Protegidos por Motor de Capacidades */}
         <Route
@@ -140,13 +149,7 @@ export const App: React.FC = () => {
           path="menu"
           element={
             <CapabilityRoute module="menu.digital" moduleName="Carta y Menú Digital">
-              <ModulePlaceholderPage
-                title="Carta Digital y Modificadores"
-                description="Configuración de platos, combos, grupos de modificadores e impuestos COP."
-                moduleKey="menu.digital"
-                phase="Fase 02 (Salón, Mesas & Carta Digital)"
-                icon={BookOpen}
-              />
+              <AdminCatalogPage />
             </CapabilityRoute>
           }
         />
