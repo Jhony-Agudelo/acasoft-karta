@@ -52,35 +52,35 @@ export const AcceptInvitePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-gradient-to-tr from-emerald-600/20 to-sky-500/20 blur-[130px] pointer-events-none rounded-full" />
+    <div className="min-h-screen bg-stone-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-gradient-to-tr from-amber-200/40 to-orange-200/40 blur-[130px] pointer-events-none rounded-full" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4 shadow-lg shadow-emerald-500/10">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 border border-orange-200 mb-4 shadow-md shadow-orange-500/10">
           <PartyPopper className="h-7 w-7" />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight text-white">
+        <h2 className="text-2xl font-bold tracking-tight text-stone-900 font-display">
           ¡Bienvenido al Equipo!
         </h2>
-        <p className="mt-2 text-xs text-slate-400 max-w-sm mx-auto">
-          Crea tu contraseña personal para activar tu cuenta de staff en el sistema.
+        <p className="mt-2 text-xs text-stone-600 max-w-sm mx-auto">
+          Crea tu contraseña personal para activar tu cuenta de staff en Karta.
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
-        <div className="bg-slate-900/80 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-2xl border border-slate-800 sm:px-10">
+        <div className="bg-white/95 backdrop-blur-xl py-8 px-6 shadow-xl shadow-stone-200/50 rounded-2xl border border-stone-200/80 sm:px-10">
           {success ? (
             <div className="text-center py-4 space-y-4">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <CheckCircle2 className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-white">Cuenta Activada con Éxito</h3>
-              <p className="text-xs text-slate-400">
-                Tu contraseña ha sido registrada correctamente. Ya puedes ingresar al sistema operativo.
+              <h3 className="text-lg font-bold text-stone-900 font-display">Cuenta Activada con Éxito</h3>
+              <p className="text-xs text-stone-600">
+                Tu contraseña ha sido registrada correctamente. Ya puedes ingresar al sistema operativo Karta.
               </p>
               <Link
                 to="/login"
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-500 py-3 px-4 text-sm font-semibold text-white shadow-md shadow-orange-500/25 transition"
               >
                 Ir a Iniciar Sesión
                 <ArrowRight className="h-4 w-4" />
@@ -89,20 +89,20 @@ export const AcceptInvitePage: React.FC = () => {
           ) : (
             <>
               {errorMessage && (
-                <div className="mb-6 flex items-start gap-3 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 text-xs text-rose-400">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="mb-6 flex items-start gap-3 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-500" />
                   <span>{errorMessage}</span>
                 </div>
               )}
 
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
                     Contraseña Nueva
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                      <Lock className="h-4 w-4 text-slate-500" />
+                      <Lock className="h-4 w-4 text-stone-400" />
                     </div>
                     <input
                       type="password"
@@ -110,18 +110,18 @@ export const AcceptInvitePage: React.FC = () => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Mínimo 8 caracteres"
-                      className="block w-full rounded-xl bg-slate-800/90 border border-slate-700/80 pl-10 pr-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      className="block w-full rounded-xl bg-stone-50 border border-stone-300 pl-10 pr-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
                     Confirmar Contraseña
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                      <Lock className="h-4 w-4 text-slate-500" />
+                      <Lock className="h-4 w-4 text-stone-400" />
                     </div>
                     <input
                       type="password"
@@ -129,7 +129,7 @@ export const AcceptInvitePage: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repite la contraseña"
-                      className="block w-full rounded-xl bg-slate-800/90 border border-slate-700/80 pl-10 pr-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      className="block w-full rounded-xl bg-stone-50 border border-stone-300 pl-10 pr-3.5 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
                     />
                   </div>
                 </div>
@@ -137,7 +137,7 @@ export const AcceptInvitePage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading || !token}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition disabled:opacity-50 mt-4"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-500 py-3 px-4 text-sm font-semibold text-white shadow-md shadow-orange-500/25 transition disabled:opacity-50 mt-4"
                 >
                   {isLoading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />

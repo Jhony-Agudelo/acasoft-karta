@@ -12,6 +12,7 @@ try {
 
 import { PrismaClient } from '@prisma/client';
 import { MODULES_CATALOG, OPERATING_PROFILES } from '@restaurante-saas/shared';
+import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
@@ -231,6 +232,116 @@ async function main() {
     }
   }
   console.log('✓ Planes comerciales y entitlements sincronizados.');
+
+  // 7. Tenant Demo y Usuario Inicial para Inicio de Sesión Inmediato
+  const demoEmail = 'admin@karta.co';
+  const demoPassword = 'Password123!';
+  const hashedPassword = await argon2.hash(demoPassword);
+
+  let demoTenant = await prisma.tenant.findUnique({
+    where: { slug: 'karta-demo' },
+  });
+
+  if (!demoTenant) {
+    demoTenant = await prisma.tenant.create({
+      data: {
+        name: 'Karta Gastronomía & Bistro',
+        slug: 'karta-demo',
+        plan_id: 'PLAN_OPERATIONS_PRO',
+        status: 'ACTIVE',
+        brand_settings: {
+          create: {
+            primary_color: '#ea580c',
+            secondary_color: '#16a34a',
+            description: 'Karta Bistro — Sistema Operativo Gastronómico',
+          },
+        },
+      },
+    });
+    console.log('✓ Tenant demo "Karta Bistro" creado.');
+  }
+
+  // Sucursal principal demo
+  let demoBranch = await prisma.branch.findFirst({
+    where: { tenant_id: demoTenant.id, slug: 'zona-g' },
+  });
+
+  if (!demoBranch) {
+    demoBranch = await prisma.branch.create({
+      data: {
+        tenant_id: demoTenant.id,
+        name: 'Sede Gourmet Zona G',
+        slug: 'zona-g',
+        address: 'Calle 69A # 5-59, Zona G',
+        phone_whatsapp_e164: '+573001234567',
+        status: 'ACTIVE',
+        channel_policies: {
+          create: [
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'DINE_IN',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+            },
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'PICKUP',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+              payment_instructions_json: {
+                nequi_phone: '+573001234567',
+                daviplata_phone: '+573001234567',
+                custom_instructions: 'Enviar soporte de transferencia al WhatsApp de la sede.',
+              },
+            },
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'DELIVERY',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+              payment_instructions_json: {
+                nequi_phone: '+573001234567',
+                daviplata_phone: '+573001234567',
+                custom_instructions: 'Enviar soporte de transferencia al WhatsApp de la sede.',
+              },
+            },
+          ],
+        },
+      },
+    });
+    console.log('✓ Sucursal demo creada.');
+  }
+
+  // Usuario Admin Demo
+  const existingUser = await prisma.user.findFirst({
+    where: { email: demoEmail },
+  });
+
+  if (!existingUser) {
+    await prisma.user.create({
+      data: {
+        email: demoEmail,
+        password_hash: hashedPassword,
+        name: 'Carlos Admin Karta',
+        phone: '+573001234567',
+        status: 'ACTIVE',
+        must_change_password: false,
+        memberships: {
+          create: {
+            tenant_id: demoTenant.id,
+            role_key: 'TENANT_ADMIN',
+            branch_scope: [],
+            is_active: true,
+          },
+        },
+      },
+    });
+    console.log('✓ Usuario Admin demo creado (admin@karta.co / Password123!).');
+  }
+
   console.log('--- Seed completado exitosamente ---');
 }
 

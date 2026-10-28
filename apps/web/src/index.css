@@ -3,16 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --brand-primary: #0284c7;
-  --brand-secondary: #f97316;
-  --brand-accent: #10b981;
+  --brand-primary: #ea580c;
+  --brand-secondary: #16a34a;
+  --brand-accent: #f59e0b;
 }
 
 @layer base {
   * {
-    @apply border-slate-200 dark:border-slate-800;
+    @apply border-stone-200;
   }
   body {
+    @apply bg-[#faf8f5] text-stone-900;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }

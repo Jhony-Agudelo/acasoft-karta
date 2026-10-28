@@ -152,18 +152,18 @@ export const CapabilitiesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in font-sans">
+    <div className="space-y-8 animate-fade-in font-sans text-stone-800">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-6">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-400 mb-2 border border-sky-500/20">
-            <Sliders className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700 mb-2 border border-orange-200">
+            <Sliders className="h-3.5 w-3.5 text-orange-600" />
             Motor de Capacidades Dinámicas
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-black tracking-tight text-stone-900">
             Perfiles Operativos y Módulos
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-stone-500 mt-1">
             Activa o desactiva módulos por sucursal. Los cambios recalculan los canales activos y la interfaz en tiempo real.
           </p>
         </div>
@@ -171,7 +171,7 @@ export const CapabilitiesPage: React.FC = () => {
         <button
           onClick={handleSaveBatchModules}
           disabled={isSaving || validationErrors.length > 0}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 transition disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-orange-500/25 transition disabled:opacity-50"
         >
           {isSaving ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -186,23 +186,23 @@ export const CapabilitiesPage: React.FC = () => {
 
       {/* Alertas */}
       {saveSuccess && (
-        <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-400">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
+        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-xs font-semibold text-emerald-800">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
           <span>Capacidades de módulos actualizadas exitosamente en la sucursal.</span>
         </div>
       )}
 
       {errorMessage && (
-        <div className="flex items-center gap-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 p-4 text-xs text-rose-400">
-          <AlertTriangle className="h-5 w-5 shrink-0" />
+        <div className="flex items-center gap-3 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-xs font-semibold text-rose-800">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       {validationErrors.length > 0 && (
-        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-400 space-y-1">
-          <div className="flex items-center gap-2 font-bold mb-1">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 space-y-1">
+          <div className="flex items-center gap-2 font-bold mb-1 text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
             Incompatibilidad de dependencias entre módulos:
           </div>
           {validationErrors.map((err, i) => (
@@ -214,14 +214,14 @@ export const CapabilitiesPage: React.FC = () => {
       )}
 
       {/* Sección Perfiles Rápidos */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-4 w-4 text-sky-400" />
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+      <div className="bg-white border border-stone-200/90 rounded-3xl p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="h-4 w-4 text-orange-600" />
+          <h2 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
             Aplicar Perfil Preconfigurado
           </h2>
         </div>
-        <p className="text-xs text-slate-400 mb-4">
+        <p className="text-xs text-stone-500 mb-4">
           Aplica en bloque el conjunto de módulos y canales recomendado para cada formato de restaurante:
         </p>
 
@@ -233,17 +233,17 @@ export const CapabilitiesPage: React.FC = () => {
                 key={key}
                 onClick={() => handleApplyProfile(key as OperatingProfileKey)}
                 disabled={isSaving}
-                className={`text-left p-3.5 rounded-2xl border transition-all ${
+                className={`text-left p-4 rounded-2xl border transition-all ${
                   isCurrent
-                    ? 'bg-sky-500/15 border-sky-500/50 shadow-md ring-1 ring-sky-500/30'
-                    : 'bg-slate-800/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/80'
+                    ? 'bg-orange-50/80 border-orange-400 shadow-sm ring-1 ring-orange-400'
+                    : 'bg-stone-50/60 border-stone-200 hover:border-stone-300 hover:bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-white truncate">{prof.name}</span>
-                  {isCurrent && <ShieldCheck className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
+                  <span className="text-xs font-bold text-stone-900 truncate">{prof.name}</span>
+                  {isCurrent && <ShieldCheck className="h-4 w-4 text-orange-600 shrink-0" />}
                 </div>
-                <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                <p className="text-[11px] text-stone-500 line-clamp-2 leading-relaxed">
                   {prof.description}
                 </p>
               </button>
@@ -255,8 +255,8 @@ export const CapabilitiesPage: React.FC = () => {
       {/* Matriz de los 16 Módulos */}
       <div className="space-y-6">
         {Object.entries(categories).map(([catTitle, modules]) => (
-          <div key={catTitle} className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+          <div key={catTitle} className="bg-white border border-stone-200/80 rounded-3xl p-6 shadow-sm">
+            <h3 className="text-xs font-extrabold text-stone-500 uppercase tracking-wider mb-4">
               {catTitle}
             </h3>
 
@@ -269,24 +269,24 @@ export const CapabilitiesPage: React.FC = () => {
                     key={mod.key}
                     className={`rounded-2xl p-4 border transition-all ${
                       isEnabled
-                        ? 'bg-slate-800/60 border-slate-700 shadow-sm'
-                        : 'bg-slate-900/30 border-slate-800/50 opacity-60'
+                        ? 'bg-stone-50/80 border-orange-200 shadow-sm'
+                        : 'bg-stone-50/30 border-stone-200/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">{mod.name}</span>
+                          <span className="text-xs font-bold text-stone-900">{mod.name}</span>
                           {isCore && (
-                            <span className="rounded bg-sky-500/20 text-sky-400 px-1.5 py-0.5 text-[9px] font-bold">
+                            <span className="rounded-md bg-stone-200 text-stone-700 px-1.5 py-0.5 text-[9px] font-bold">
                               CORE
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-mono text-slate-500 block mb-1">
+                        <span className="text-[10px] font-mono text-stone-400 block mb-1">
                           {mod.key}
                         </span>
-                        <p className="text-xs text-slate-400 leading-snug">{mod.description}</p>
+                        <p className="text-xs text-stone-500 leading-snug">{mod.description}</p>
                       </div>
 
                       <button
@@ -294,7 +294,7 @@ export const CapabilitiesPage: React.FC = () => {
                         disabled={isCore}
                         onClick={() => handleToggleModule(mod.key)}
                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          isEnabled ? 'bg-sky-500' : 'bg-slate-700'
+                          isEnabled ? 'bg-orange-600' : 'bg-stone-300'
                         } ${isCore ? 'cursor-not-allowed opacity-50' : ''}`}
                       >
                         <span
@@ -306,8 +306,8 @@ export const CapabilitiesPage: React.FC = () => {
                     </div>
 
                     {(mod.depends_on_all.length > 0 || mod.depends_on_any.length > 0) && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center gap-1.5 text-[10px] text-slate-500">
-                        <Info className="h-3 w-3 shrink-0" />
+                      <div className="mt-3 pt-2.5 border-t border-stone-200 flex items-center gap-1.5 text-[10px] text-stone-500">
+                        <Info className="h-3 w-3 shrink-0 text-orange-500" />
                         <span>
                           Requiere: {[...mod.depends_on_all, ...(mod.depends_on_any.length ? [`uno de: (${mod.depends_on_any.join(', ')})`] : [])].join(', ')}
                         </span>

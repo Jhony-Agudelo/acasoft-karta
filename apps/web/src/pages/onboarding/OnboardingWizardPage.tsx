@@ -113,18 +113,18 @@ export const OnboardingWizardPage: React.FC = () => {
   const currentProfileData = OPERATING_PROFILES[selectedProfile as keyof typeof OPERATING_PROFILES];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between py-8 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col justify-between py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-4xl mx-auto w-full">
         {/* Header con Stepper */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-sky-500/10 border border-sky-500/20 px-4 py-1.5 text-xs font-semibold text-sky-400 mb-2">
+          <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 border border-orange-200 px-4 py-1.5 text-xs font-semibold text-orange-700 mb-2">
             <Sparkles className="h-4 w-4" />
-            Asistente de Configuración Inicial
+            Asistente de Configuración Inicial Karta
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-stone-900 font-display">
             Prepara tu Restaurante en 3 Pasos
           </h1>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-stone-600">
             Personaliza tu identidad, activa los módulos para tu modelo de negocio y conecta métodos de cobro
           </p>
 
@@ -143,17 +143,17 @@ export const OnboardingWizardPage: React.FC = () => {
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold transition-all ${
                       completed
-                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                         : active
-                        ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20 ring-4 ring-sky-500/10'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20 ring-4 ring-orange-500/10'
+                        : 'bg-stone-200 text-stone-500 border border-stone-300'
                     }`}
                   >
                     {completed ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                   </div>
                   <span
                     className={`text-xs font-semibold hidden sm:inline ${
-                      active ? 'text-white' : completed ? 'text-slate-300' : 'text-slate-500'
+                      active ? 'text-stone-900' : completed ? 'text-stone-700' : 'text-stone-400'
                     }`}
                   >
                     {s.label}
@@ -165,38 +165,38 @@ export const OnboardingWizardPage: React.FC = () => {
         </div>
 
         {/* Wizard Card Content */}
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl">
+        <div className="bg-white/95 backdrop-blur-xl border border-stone-200/80 rounded-3xl p-6 sm:p-10 shadow-xl shadow-stone-200/50">
           {/* PASO 1: MARCA Y SUCURSAL */}
           {step === 1 && (
             <div className="space-y-6 animate-fade-in">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-sky-400" />
+              <div className="border-b border-stone-200 pb-4">
+                <h2 className="text-lg font-bold text-stone-900 font-display flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-orange-600" />
                   Identidad Visual y Sede Principal
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-stone-600 mt-1">
                   Define los colores con los que tus comensales reconocerán tu carta digital y facturas.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
                     Nombre Comercial
                   </label>
                   <input
                     type="text"
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="Ej. El Buen Sabor"
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    placeholder="Ej. Karta Bistro & Café"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-300 px-4 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Palette className="h-3.5 w-3.5 text-sky-400" />
+                    <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Palette className="h-3.5 w-3.5 text-orange-600" />
                       Color Primario
                     </label>
                     <div className="flex items-center gap-2">
@@ -206,13 +206,13 @@ export const OnboardingWizardPage: React.FC = () => {
                         onChange={(e) => setPrimaryColor(e.target.value)}
                         className="h-10 w-12 rounded-lg cursor-pointer bg-transparent border-0"
                       />
-                      <span className="text-xs font-mono text-slate-300">{primaryColor}</span>
+                      <span className="text-xs font-mono text-stone-700 font-semibold">{primaryColor}</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Palette className="h-3.5 w-3.5 text-orange-400" />
+                    <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Palette className="h-3.5 w-3.5 text-amber-600" />
                       Color Secundario
                     </label>
                     <div className="flex items-center gap-2">
@@ -222,26 +222,26 @@ export const OnboardingWizardPage: React.FC = () => {
                         onChange={(e) => setSecondaryColor(e.target.value)}
                         className="h-10 w-12 rounded-lg cursor-pointer bg-transparent border-0"
                       />
-                      <span className="text-xs font-mono text-slate-300">{secondaryColor}</span>
+                      <span className="text-xs font-mono text-stone-700 font-semibold">{secondaryColor}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Live Preview Card */}
-              <div className="rounded-2xl p-4 border border-slate-800 bg-slate-950/60 flex items-center justify-between">
+              <div className="rounded-2xl p-4 border border-stone-200 bg-stone-50 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className="h-12 w-12 rounded-xl flex items-center justify-center font-bold text-white shadow-md text-lg"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    {brandName ? brandName.charAt(0).toUpperCase() : 'R'}
+                    {brandName ? brandName.charAt(0).toUpperCase() : 'K'}
                   </div>
                   <div>
-                    <span className="text-sm font-bold text-white block">
+                    <span className="text-sm font-bold text-stone-900 block font-display">
                       {brandName || 'Tu Restaurante'}
                     </span>
-                    <span className="text-xs text-slate-400">Previsualización de marca en vivo</span>
+                    <span className="text-xs text-stone-500">Previsualización de marca en vivo</span>
                   </div>
                 </div>
                 <div
@@ -253,40 +253,40 @@ export const OnboardingWizardPage: React.FC = () => {
               </div>
 
               {/* Datos de Sede */}
-              <div className="pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="pt-4 border-t border-stone-200 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Store className="h-3.5 w-3.5 text-slate-400" />
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Store className="h-3.5 w-3.5 text-stone-500" />
                     Dirección Sede
                   </label>
                   <input
                     type="text"
                     value={branchAddress}
                     onChange={(e) => setBranchAddress(e.target.value)}
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm text-white"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-300 px-3.5 py-2 text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">
                     Ciudad
                   </label>
                   <input
                     type="text"
                     value={branchCity}
                     onChange={(e) => setBranchCity(e.target.value)}
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm text-white"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-300 px-3.5 py-2 text-sm text-stone-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-emerald-600" />
                     WhatsApp Recepción Pedidos
                   </label>
                   <input
                     type="text"
                     value={branchWhatsApp}
                     onChange={(e) => setBranchWhatsApp(e.target.value)}
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm text-white font-mono"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-300 px-3.5 py-2 text-sm text-stone-900 font-mono focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -296,12 +296,12 @@ export const OnboardingWizardPage: React.FC = () => {
           {/* PASO 2: PERFIL OPERATIVO */}
           {step === 2 && (
             <div className="space-y-6 animate-fade-in">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Sliders className="h-5 w-5 text-sky-400" />
+              <div className="border-b border-stone-200 pb-4">
+                <h2 className="text-lg font-bold text-stone-900 font-display flex items-center gap-2">
+                  <Sliders className="h-5 w-5 text-orange-600" />
                   Elige tu Perfil Operativo
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-stone-600 mt-1">
                   Configura de un solo clic los módulos ideales para cómo trabaja tu negocio. Puedes modificarlos en cualquier momento.
                 </p>
               </div>
@@ -315,29 +315,29 @@ export const OnboardingWizardPage: React.FC = () => {
                       onClick={() => setSelectedProfile(key)}
                       className={`cursor-pointer rounded-2xl p-4 border transition-all relative ${
                         selected
-                          ? 'bg-sky-500/10 border-sky-500 shadow-lg shadow-sky-500/10 ring-1 ring-sky-500'
-                          : 'bg-slate-800/60 border-slate-700 hover:border-slate-600'
+                          ? 'bg-orange-50/70 border-orange-500 shadow-md shadow-orange-500/10 ring-1 ring-orange-500'
+                          : 'bg-stone-50 border-stone-200 hover:border-stone-300 hover:bg-white'
                       }`}
                     >
                       {selected && (
-                        <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-white">
+                        <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-orange-600 text-white">
                           <Check className="h-3.5 w-3.5" />
                         </div>
                       )}
-                      <h3 className="text-sm font-bold text-white">{prof.name}</h3>
-                      <p className="text-xs text-slate-400 mt-1 pr-6">{prof.description}</p>
+                      <h3 className="text-sm font-bold text-stone-900 font-display">{prof.name}</h3>
+                      <p className="text-xs text-stone-600 mt-1 pr-6">{prof.description}</p>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {prof.module_keys.slice(0, 5).map((mod) => (
                           <span
                             key={mod}
-                            className="inline-block rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300"
+                            className="inline-block rounded-md bg-stone-200/80 px-2 py-0.5 text-[10px] font-semibold text-stone-700"
                           >
                             {mod}
                           </span>
                         ))}
                         {prof.module_keys.length > 5 && (
-                          <span className="inline-block rounded-md bg-slate-800/50 px-2 py-0.5 text-[10px] text-slate-500">
+                          <span className="inline-block rounded-md bg-stone-200/50 px-2 py-0.5 text-[10px] text-stone-500">
                             +{prof.module_keys.length - 5} más
                           </span>
                         )}
@@ -348,8 +348,8 @@ export const OnboardingWizardPage: React.FC = () => {
               </div>
 
               {currentProfileData && (
-                <div className="rounded-2xl p-4 bg-slate-950/70 border border-slate-800 text-xs text-slate-300">
-                  <span className="font-bold text-sky-400 block mb-1">
+                <div className="rounded-2xl p-4 bg-orange-50/60 border border-orange-200 text-xs text-stone-800">
+                  <span className="font-bold text-orange-700 block mb-1">
                     Configuración de {currentProfileData.name}:
                   </span>
                   <div className="flex flex-wrap gap-4 mt-2">
@@ -369,24 +369,24 @@ export const OnboardingWizardPage: React.FC = () => {
           {/* PASO 3: MÉTODOS DE PAGO COLOMBIANOS */}
           {step === 3 && (
             <div className="space-y-6 animate-fade-in">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-emerald-400" />
+              <div className="border-b border-stone-200 pb-4">
+                <h2 className="text-lg font-bold text-stone-900 font-display flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-emerald-600" />
                   Cuentas de Cobro Digital en Colombia
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-stone-600 mt-1">
                   Los clientes que hagan pedidos por WhatsApp o carta digital verán estos datos para realizar sus transferencias inmediatas.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Nequi */}
-                <div className="rounded-2xl p-4 bg-slate-800/70 border border-slate-700/80">
+                <div className="rounded-2xl p-4 bg-stone-50 border border-stone-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="h-6 w-6 rounded-md bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-xs">
+                    <div className="h-6 w-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xs">
                       N
                     </div>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
                       Cuenta Nequi
                     </span>
                   </div>
@@ -395,17 +395,17 @@ export const OnboardingWizardPage: React.FC = () => {
                     value={nequiPhone}
                     onChange={(e) => setNequiPhone(e.target.value)}
                     placeholder="3001234567"
-                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white font-mono"
+                    className="w-full rounded-xl bg-white border border-stone-300 px-3.5 py-2 text-sm text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
                 {/* DaviPlata */}
-                <div className="rounded-2xl p-4 bg-slate-800/70 border border-slate-700/80">
+                <div className="rounded-2xl p-4 bg-stone-50 border border-stone-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="h-6 w-6 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center font-black text-xs">
+                    <div className="h-6 w-6 rounded-md bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xs">
                       D
                     </div>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
                       Cuenta DaviPlata
                     </span>
                   </div>
@@ -414,15 +414,15 @@ export const OnboardingWizardPage: React.FC = () => {
                     value={daviplataPhone}
                     onChange={(e) => setDaviplataPhone(e.target.value)}
                     placeholder="3001234567"
-                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white font-mono"
+                    className="w-full rounded-xl bg-white border border-stone-300 px-3.5 py-2 text-sm text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
                 {/* Llave Bre-B */}
-                <div className="rounded-2xl p-4 bg-slate-800/70 border border-slate-700/80 md:col-span-2">
+                <div className="rounded-2xl p-4 bg-stone-50 border border-stone-200 md:col-span-2">
                   <div className="flex items-center gap-2 mb-2">
-                    <QrCode className="h-4 w-4 text-sky-400" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    <QrCode className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
                       Llave Bre-B del Banco de la República (Interoperable)
                     </span>
                   </div>
@@ -431,20 +431,20 @@ export const OnboardingWizardPage: React.FC = () => {
                     value={brebKey}
                     onChange={(e) => setBrebKey(e.target.value)}
                     placeholder="Ej. NIT 901234567 o Identificador Bre-B"
-                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white"
+                    className="w-full rounded-xl bg-white border border-stone-300 px-3.5 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
                 {/* Instrucciones Adicionales */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
                     Instrucciones para el Comensal
                   </label>
                   <textarea
                     rows={2}
                     value={customInstructions}
                     onChange={(e) => setCustomInstructions(e.target.value)}
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 p-3 text-xs text-white"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-300 p-3 text-xs text-stone-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
               </div>
@@ -452,12 +452,12 @@ export const OnboardingWizardPage: React.FC = () => {
           )}
 
           {/* Stepper Navigation Buttons */}
-          <div className="mt-8 pt-6 border-t border-slate-800 flex items-center justify-between">
+          <div className="mt-8 pt-6 border-t border-stone-200 flex items-center justify-between">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={() => setStep(step - 1)}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
+                className="inline-flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Paso Anterior
@@ -470,7 +470,7 @@ export const OnboardingWizardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/25 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-500 px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-orange-500/25 transition"
               >
                 Siguiente Paso
                 <ArrowRight className="h-4 w-4" />
@@ -480,7 +480,7 @@ export const OnboardingWizardPage: React.FC = () => {
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleFinishOnboarding}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-500/25 transition disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

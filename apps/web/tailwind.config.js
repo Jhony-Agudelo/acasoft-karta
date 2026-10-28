@@ -6,15 +6,17 @@ export default {
     extend: {
       colors: {
         brand: {
-          primary: 'var(--brand-primary, #0ea5e9)',
-          secondary: 'var(--brand-secondary, #f97316)',
-          accent: 'var(--brand-accent, #10b981)',
-          dark: '#0f172a',
-          surface: '#1e293b',
+          primary: 'var(--brand-primary, #ea580c)',
+          secondary: 'var(--brand-secondary, #16a34a)',
+          accent: 'var(--brand-accent, #f59e0b)',
+          sand: '#fbf9f5',
+          cream: '#ffffff',
+          dark: '#1c1917',
+          surface: '#292524',
         },
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Outfit', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         'glow-primary': '0 0 20px -3px rgba(14, 165, 233, 0.35)',
