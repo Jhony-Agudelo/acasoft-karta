@@ -89,6 +89,10 @@ export function buildStaffInviteWhatsAppMessage(params: {
   return message;
 }
 
+import { formatMoneyCop } from './money-cop';
+import type { FulfillmentType } from '../constants/order-status.machine';
+import type { CustomerSnapshot } from '../schemas/order-snapshots.schema';
+
 /**
  * Plantilla de mensaje de confirmación y seguimiento que el restaurante envía al comensal tras procesar su pedido.
  */
@@ -118,4 +122,152 @@ export function generateStaffInvitationLink(
     inviteUrl,
   });
   return buildWhatsAppLink(phoneE164, message);
+}
+
+// ---------------------------------------------------------------------------
+// Checkout Vitrina -> WhatsApp (Cliente -> Restaurante) y Privacidad
+// ---------------------------------------------------------------------------
+
+export interface CustomerWhatsAppOrderItem {
+  quantity: number;
+  productName: string;
+  variantName?: string | null;
+  modifiers?: string[];
+  unitPriceCop?: number;
+  lineTotalCop: number;
+}
+
+export interface CustomerWhatsAppOrderParams {
+  branchWhatsAppPhone: string;
+  orderCode: string;
+  restaurantName: string;
+  customerName: string;
+  fulfillmentType: FulfillmentType;
+  items: CustomerWhatsAppOrderItem[];
+  subtotalProductsCop: number;
+  deliveryFeeCop?: number;
+  grandTotalCop: number;
+  deliveryAddress?: {
+    addressLine: string;
+    neighborhood: string;
+    referenceNotes?: string | null;
+  } | null;
+  notes?: string | null;
+}
+
+/**
+ * Construye el enlace profundo wa.me que el comensal abre al pulsar "Terminar pedido por WhatsApp".
+ * Incluye el código de pedido #A101, desglose de ítems, totales en COP y dirección de entrega.
+ */
+export function buildCustomerToBranchWhatsappUrl(params: CustomerWhatsAppOrderParams): string {
+  const {
+    branchWhatsAppPhone,
+    orderCode,
+    restaurantName,
+    customerName,
+    fulfillmentType,
+    items,
+    subtotalProductsCop,
+    deliveryFeeCop = 0,
+    grandTotalCop,
+    deliveryAddress,
+    notes,
+  } = params;
+
+  const modalityMap: Record<FulfillmentType, string> = {
+    PICKUP: 'Para llevar (Takeout / Pickup)',
+    DELIVERY: 'Domicilio (Delivery)',
+    DINE_IN: 'En el restaurante (Mesa)',
+  };
+
+  const lines: string[] = [];
+  lines.push(`🍽️ *${restaurantName}*`);
+  lines.push(`¡Hola! Quiero confirmar mi pedido *${orderCode}*.`);
+  lines.push('');
+  lines.push(`🛵 *Modalidad:* ${modalityMap[fulfillmentType] || fulfillmentType}`);
+  lines.push(`👤 *Cliente:* ${customerName}`);
+  lines.push('');
+  lines.push('📋 *Detalle del pedido:*');
+
+  for (const item of items) {
+    const variantStr = item.variantName ? ` (${item.variantName})` : '';
+    lines.push(`• ${item.quantity}x ${item.productName}${variantStr} — ${formatMoneyCop(item.lineTotalCop)}`);
+    if (item.modifiers && item.modifiers.length > 0) {
+      for (const mod of item.modifiers) {
+        lines.push(`   └ ${mod}`);
+      }
+    }
+  }
+
+  lines.push('');
+  lines.push(`💵 *Subtotal productos:* ${formatMoneyCop(subtotalProductsCop)}`);
+  if (fulfillmentType === 'DELIVERY' && deliveryFeeCop > 0) {
+    lines.push(`🛵 *Costo de domicilio:* ${formatMoneyCop(deliveryFeeCop)}`);
+  }
+  lines.push(`💰 *Total a pagar:* ${formatMoneyCop(grandTotalCop)}`);
+
+  if (fulfillmentType === 'DELIVERY' && deliveryAddress) {
+    lines.push('');
+    lines.push('📍 *Dirección de entrega:*');
+    lines.push(`${deliveryAddress.addressLine}, Barrio ${deliveryAddress.neighborhood}`);
+    if (deliveryAddress.referenceNotes) {
+      lines.push(`Notas de entrega: ${deliveryAddress.referenceNotes}`);
+    }
+  }
+
+  if (notes) {
+    lines.push('');
+    lines.push(`📝 *Observaciones:* ${notes}`);
+  }
+
+  lines.push('');
+  lines.push('Quedo atento(a) a la confirmación de mi pedido. ¡Gracias!');
+
+  const fullMessage = lines.join('\n');
+  return buildWhatsAppLink(branchWhatsAppPhone, fullMessage);
+}
+
+/**
+ * Enmascara datos sensibles de un CustomerSnapshot para visualización no privilegiada o logs.
+ * Cumple con Ley 1581 de 2012 (Habeas Data Colombia).
+ */
+export function maskCustomerSnapshot(snapshot: CustomerSnapshot): CustomerSnapshot {
+  if (snapshot.name === 'Anonimizado' || snapshot.phone_e164 === 'REDACTED') {
+    return snapshot;
+  }
+
+  // Máscara de nombre: "Carlos Ramírez" -> "Carlos R."
+  let maskedName = snapshot.name;
+  const nameParts = snapshot.name.trim().split(/\s+/);
+  if (nameParts.length >= 2 && nameParts[0] && nameParts[1]) {
+    maskedName = `${nameParts[0]} ${nameParts[1].charAt(0).toUpperCase()}.`;
+  }
+
+  // Máscara de teléfono: "+573001234567" -> "+57 *** *** 4567"
+  let maskedPhone = snapshot.phone_e164;
+  const digitsOnly = snapshot.phone_e164.replace(/\D/g, '');
+  if (digitsOnly.length === 12 && digitsOnly.startsWith('57')) {
+    const last4 = digitsOnly.slice(-4);
+    maskedPhone = `+57 *** *** ${last4}`;
+  } else if (digitsOnly.length === 10) {
+    const last4 = digitsOnly.slice(-4);
+    maskedPhone = `+57 *** *** ${last4}`;
+  }
+
+  // Ocultar números de la dirección: ej. "Calle 19 # 8-45 Apto 302" -> "Calle ** # *-** Apto ***"
+  const maskedAddress = snapshot.address_line
+    ? snapshot.address_line.replace(/\d/g, '*')
+    : null;
+
+  const maskedNotes = snapshot.reference_notes
+    ? snapshot.reference_notes.replace(/\d/g, '*')
+    : null;
+
+  return {
+    ...snapshot,
+    name: maskedName,
+    phone_e164: maskedPhone,
+    address_line: maskedAddress,
+    reference_notes: maskedNotes,
+  };
 }
