@@ -61,13 +61,13 @@ export const AppLayout: React.FC = () => {
   // Navegación modular dinámica
   const navItems = [
     { label: 'Panel Principal', path: '/dashboard', icon: LayoutDashboard, alwaysShow: true },
+    { label: 'Panel de Pedidos', path: '/panel/lite', icon: Sparkles, alwaysShow: true },
     { label: 'Menú & Carta', path: '/menu', icon: BookOpen, alwaysShow: true },
     { label: 'Códigos QR', path: '/admin/qr-codes', icon: QrCode, alwaysShow: true },
     { label: 'Salón y Mesas', path: '/dining', icon: UtensilsCrossed, module: 'dining' },
     { label: 'Domicilios', path: '/delivery', icon: Truck, module: 'delivery' },
     { label: 'Para Llevar', path: '/pickup', icon: ShoppingBag, module: 'channel.pickup' },
     { label: 'Cocina KDS', path: '/kds', icon: Flame, module: 'kitchen' },
-    { label: 'Seguimiento en Vivo', path: '/tracking', icon: Sparkles, module: 'tracking' },
   ];
 
   const filteredNavItems = navItems.filter((item) => {

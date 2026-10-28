@@ -15,7 +15,8 @@ import { AdminCatalogPage } from './features/admin-catalog/AdminCatalogPage';
 import { QrCodeCenterPage } from './features/admin-catalog/QrCodeCenterPage';
 import { StorefrontPage } from './features/public-storefront/StorefrontPage';
 import { QrResolverPage } from './features/public-storefront/QrResolverPage';
-import { PublicOrderTrackerPage } from './features/public-storefront/PublicOrderTrackerPage';
+import { PublicTrackingPage } from './features/public-tracking/PublicTrackingPage';
+import { LiteOrderPanelPage } from './features/lite-order-panel/LiteOrderPanelPage';
 import { DeliveryZonesPage } from './features/admin-delivery/DeliveryZonesPage';
 import { CustomersDirectoryPage } from './features/admin-customers/CustomersDirectoryPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
@@ -28,6 +29,7 @@ import {
   BookOpen,
   Boxes,
   Users2,
+  Zap,
 } from 'lucide-react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
@@ -42,7 +44,8 @@ export const App: React.FC = () => {
       <Route path="/r/:restaurantSlug" element={<StorefrontPage />} />
       <Route path="/r/:restaurantSlug/b/:branchSlug" element={<StorefrontPage />} />
       <Route path="/q/:qrToken" element={<QrResolverPage />} />
-      <Route path="/t/:publicToken" element={<PublicOrderTrackerPage />} />
+      <Route path="/t/:publicOrderToken" element={<PublicTrackingPage />} />
+      <Route path="/t/:publicToken" element={<PublicTrackingPage />} />
 
       {/* Rutas Protegidas sin Layout Principal */}
       <Route
@@ -79,6 +82,14 @@ export const App: React.FC = () => {
         <Route path="admin/qr-codes" element={<QrCodeCenterPage />} />
         <Route path="admin/delivery-zones" element={<DeliveryZonesPage />} />
         <Route path="admin/customers" element={<CustomersDirectoryPage />} />
+        <Route
+          path="panel/lite"
+          element={
+            <CapabilityRoute module="order_panel" moduleName="Panel Liviano de Pedidos">
+              <LiteOrderPanelPage />
+            </CapabilityRoute>
+          }
+        />
 
         {/* Módulos Protegidos por Motor de Capacidades */}
         <Route
