@@ -157,7 +157,7 @@ export class PublicOrderController {
     const trackingSetting = await (this.prisma as any).tenantModuleSetting.findFirst({
       where: { tenant_id: order.tenant_id, module_key: 'tracking' },
     });
-    const trackingEnabled = trackingSetting ? trackingSetting.is_enabled : true;
+    const trackingEnabled = trackingSetting ? trackingSetting.enabled : true;
 
     // Enmascarar snapshot de cliente para cumplimiento de Ley 1581
     const maskedCustomer = maskCustomerSnapshot(order.customer_snapshot_json as any);

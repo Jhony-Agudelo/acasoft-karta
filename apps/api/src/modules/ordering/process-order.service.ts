@@ -82,7 +82,7 @@ export class ProcessOrderService {
           tenant_id: tenantId,
           actor_id: actorId || null,
           action: 'ORDER_PROCESSED',
-          entity_name: 'Order',
+          entity_type: 'Order',
           entity_id: orderId,
           metadata_json: {
             order_code: order.order_code,
