@@ -236,3 +236,9 @@ export function canTransitionOrder(input: OrderTransitionInput): OrderTransition
   // configured in effectiveFlow, it follows that flow.
   return { allowed: true };
 }
+
+/**
+ * Alias de compatibilidad para la máquina de estados.
+ */
+export const canTransitionOrderStatus = canTransitionOrder;
+

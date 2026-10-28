@@ -227,47 +227,113 @@ export function buildCustomerToBranchWhatsappUrl(params: CustomerWhatsAppOrderPa
   return buildWhatsAppLink(branchWhatsAppPhone, fullMessage);
 }
 
+// Re-exportar utilidades de enmascaramiento PII (Ley 1581)
+export {
+  maskCustomerName,
+  maskCustomerPhone,
+  maskCustomerAddress,
+  maskCustomerSnapshot,
+  type MaskedCustomerResult,
+  type MaskCustomerInput,
+} from './pii-masker';
+
+import type { OrderStatus } from '../constants/order-status.machine';
+
 /**
- * Enmascara datos sensibles de un CustomerSnapshot para visualización no privilegiada o logs.
- * Cumple con Ley 1581 de 2012 (Habeas Data Colombia).
+ * Plantilla de mensaje de confirmación que la sucursal envía al cliente al pulsar "Procesar pedido" (1 toque).
+ * Alineado con FASE_03B Sección 3.2.
+ * NO incluye dirección ni teléfono completo del cliente en el texto.
  */
-export function maskCustomerSnapshot(snapshot: CustomerSnapshot): CustomerSnapshot {
-  if (snapshot.name === 'Anonimizado' || snapshot.phone_e164 === 'REDACTED') {
-    return snapshot;
-  }
+export function buildBranchToCustomerProcessedWhatsapp(params: {
+  readonly customerName: string;
+  readonly customerPhoneE164: string;
+  readonly restaurantName: string;
+  readonly orderCode: string;
+  readonly grandTotalCop: number;
+  readonly publicToken: string;
+  readonly trackingBaseUrl?: string;
+}): { whatsapp_client_url: string; copyable_message: string } {
+  const {
+    customerName,
+    customerPhoneE164,
+    restaurantName,
+    orderCode,
+    grandTotalCop,
+    publicToken,
+    trackingBaseUrl = 'http://localhost:5173',
+  } = params;
 
-  // Máscara de nombre: "Carlos Ramírez" -> "Carlos R."
-  let maskedName = snapshot.name;
-  const nameParts = snapshot.name.trim().split(/\s+/);
-  if (nameParts.length >= 2 && nameParts[0] && nameParts[1]) {
-    maskedName = `${nameParts[0]} ${nameParts[1].charAt(0).toUpperCase()}.`;
-  }
+  // Extraer primer nombre para un tono más amigable
+  const firstName = customerName.trim().split(/\s+/)[0] || 'Cliente';
+  const cleanBase = trackingBaseUrl.replace(/\/+$/, '');
+  const trackingUrl = `${cleanBase}/t/${publicToken}`;
+  const formattedTotal = formatMoneyCop(grandTotalCop);
 
-  // Máscara de teléfono: "+573001234567" -> "+57 *** *** 4567"
-  let maskedPhone = snapshot.phone_e164;
-  const digitsOnly = snapshot.phone_e164.replace(/\D/g, '');
-  if (digitsOnly.length === 12 && digitsOnly.startsWith('57')) {
-    const last4 = digitsOnly.slice(-4);
-    maskedPhone = `+57 *** *** ${last4}`;
-  } else if (digitsOnly.length === 10) {
-    const last4 = digitsOnly.slice(-4);
-    maskedPhone = `+57 *** *** ${last4}`;
-  }
-
-  // Ocultar números de la dirección: ej. "Calle 19 # 8-45 Apto 302" -> "Calle ** # *-** Apto ***"
-  const maskedAddress = snapshot.address_line
-    ? snapshot.address_line.replace(/\d/g, '*')
-    : null;
-
-  const maskedNotes = snapshot.reference_notes
-    ? snapshot.reference_notes.replace(/\d/g, '*')
-    : null;
+  const copyable_message = `Hola ${firstName}, tu pedido *${orderCode}* en *${restaurantName}* ha sido confirmado por un total de *${formattedTotal}*. Puedes ver el resumen final y el estado en vivo aquí: ${trackingUrl}`;
+  const whatsapp_client_url = buildWhatsAppLink(customerPhoneE164, copyable_message);
 
   return {
-    ...snapshot,
-    name: maskedName,
-    phone_e164: maskedPhone,
-    address_line: maskedAddress,
-    reference_notes: maskedNotes,
+    whatsapp_client_url,
+    copyable_message,
   };
 }
+
+/**
+ * Plantilla opcional de actualización de estado enviada desde la sucursal hacia el comensal.
+ */
+export function buildBranchToCustomerStatusWhatsapp(params: {
+  readonly customerName: string;
+  readonly customerPhoneE164: string;
+  readonly restaurantName: string;
+  readonly orderCode: string;
+  readonly status: OrderStatus;
+  readonly publicToken: string;
+  readonly trackingBaseUrl?: string;
+}): { whatsapp_client_url: string; copyable_message: string } {
+  const {
+    customerName,
+    customerPhoneE164,
+    restaurantName,
+    orderCode,
+    status,
+    publicToken,
+    trackingBaseUrl = 'http://localhost:5173',
+  } = params;
+
+  const firstName = customerName.trim().split(/\s+/)[0] || 'Cliente';
+  const cleanBase = trackingBaseUrl.replace(/\/+$/, '');
+  const trackingUrl = `${cleanBase}/t/${publicToken}`;
+
+  let statusMsg = '';
+  switch (status) {
+    case 'PREPARING':
+      statusMsg = `¡Hola ${firstName}! En *${restaurantName}* estamos preparando tu pedido *${orderCode}* con los mejores ingredientes.`;
+      break;
+    case 'READY':
+      statusMsg = `¡Hola ${firstName}! Tu pedido *${orderCode}* en *${restaurantName}* está listo para recoger.`;
+      break;
+    case 'OUT_FOR_DELIVERY':
+      statusMsg = `¡Hola ${firstName}! Tu pedido *${orderCode}* en *${restaurantName}* va en camino a tu dirección.`;
+      break;
+    case 'DELIVERED':
+    case 'PICKED_UP':
+    case 'SERVED':
+      statusMsg = `¡Hola ${firstName}! Tu pedido *${orderCode}* ha sido entregado. ¡Esperamos que lo disfrutes!`;
+      break;
+    case 'REJECTED':
+      statusMsg = `Hola ${firstName}, lamentamos informarte que en *${restaurantName}* no podemos atender tu pedido *${orderCode}* en este momento. Te pedimos disculpas por los inconvenientes.`;
+      break;
+    default:
+      statusMsg = `¡Hola ${firstName}! Tu pedido *${orderCode}* en *${restaurantName}* ha cambiado a estado *${status}*.`;
+      break;
+  }
+
+  const copyable_message = `${statusMsg} Puedes ver el seguimiento aquí: ${trackingUrl}`;
+  const whatsapp_client_url = buildWhatsAppLink(customerPhoneE164, copyable_message);
+
+  return {
+    whatsapp_client_url,
+    copyable_message,
+  };
+}
+
