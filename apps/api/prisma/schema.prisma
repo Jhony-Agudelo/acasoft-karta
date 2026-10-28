@@ -31,6 +31,13 @@ model Tenant {
   module_settings  TenantModuleSetting[]
   channel_policies BranchChannelPolicy[]
   audit_events     AuditEvent[]
+  menus            Menu[]
+  categories       Category[]
+  products         Product[]
+  product_variants ProductVariant[]
+  modifier_groups  ModifierGroup[]
+  modifier_options ModifierOption[]
+  qr_code_links    QrCodeLink[]
 
   @@map("tenants")
 }
@@ -65,6 +72,8 @@ model Branch {
   channel_policies BranchChannelPolicy[]
   module_settings  TenantModuleSetting[]
   audit_events     AuditEvent[]
+  menus            Menu[]
+  qr_code_links    QrCodeLink[]
 
   @@unique([tenant_id, slug])
   @@map("branches")
@@ -241,3 +250,148 @@ model AuditEvent {
   @@index([tenant_id, occurred_at(sort: Desc)])
   @@map("audit_events")
 }
+
+// -----------------------------------------------------------------------------
+// 5. CATÁLOGO DIGITAL, PRODUCTOS, MODIFICADORES Y CÓDIGOS QR
+// -----------------------------------------------------------------------------
+
+model Menu {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenant_id  String   @db.Uuid
+  branch_id  String?  @db.Uuid
+  name       String
+  status     String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  tenant     Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch     Branch?    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  categories Category[]
+
+  @@index([tenant_id, branch_id, status])
+  @@map("menus")
+}
+
+model Category {
+  id                         String   @id @default(uuid()) @db.Uuid
+  tenant_id                  String   @db.Uuid
+  menu_id                    String   @db.Uuid
+  name                       String
+  description                String?
+  sort_order                 Int      @default(0)
+  default_station_key        String?  @db.VarChar(50)
+  availability_schedule_json Json?
+  is_active                  Boolean  @default(true)
+
+  tenant   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  menu     Menu      @relation(fields: [menu_id], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([tenant_id, menu_id, sort_order])
+  @@map("categories")
+}
+
+model Product {
+  id                   String   @id @default(uuid()) @db.Uuid
+  tenant_id            String   @db.Uuid
+  category_id          String   @db.Uuid
+  name                 String
+  description          String?
+  image_url            String?
+  price_cop            Int
+  tax_type             String   @default("NONE") // NONE | INC | IVA | EXEMPT
+  tax_rate_bp          Int      @default(0)
+  override_station_key String?  @db.VarChar(50)
+  allergen_tags        String[] @default([])
+  status               String   @default("ACTIVE") // ACTIVE | OUT_OF_STOCK | ARCHIVED
+  sort_order           Int      @default(0)
+  created_at           DateTime @default(now()) @db.Timestamptz
+  updated_at           DateTime @updatedAt @db.Timestamptz
+
+  tenant          Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  category        Category               @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  variants        ProductVariant[]
+  modifier_groups ProductModifierGroup[]
+
+  @@index([tenant_id, category_id, status, sort_order])
+  @@map("products")
+}
+
+model ProductVariant {
+  id         String @id @default(uuid()) @db.Uuid
+  tenant_id  String @db.Uuid
+  product_id String @db.Uuid
+  name       String
+  price_cop  Int
+  status     String @default("ACTIVE") // ACTIVE | OUT_OF_STOCK
+  sort_order Int    @default(0)
+
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, product_id, sort_order])
+  @@map("product_variants")
+}
+
+model ModifierGroup {
+  id             String  @id @default(uuid()) @db.Uuid
+  tenant_id      String  @db.Uuid
+  name           String
+  min_selections Int     @default(0)
+  max_selections Int     @default(1)
+  is_required    Boolean @default(false)
+
+  tenant   Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  options  ModifierOption[]
+  products ProductModifierGroup[]
+
+  @@index([tenant_id, name])
+  @@map("modifier_groups")
+}
+
+model ModifierOption {
+  id              String @id @default(uuid()) @db.Uuid
+  tenant_id       String @db.Uuid
+  group_id        String @db.Uuid
+  name            String
+  extra_price_cop Int    @default(0)
+  status          String @default("ACTIVE") // ACTIVE | OUT_OF_STOCK
+  sort_order      Int    @default(0)
+
+  tenant Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  group  ModifierGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, group_id, sort_order])
+  @@map("modifier_options")
+}
+
+model ProductModifierGroup {
+  product_id String @db.Uuid
+  group_id   String @db.Uuid
+  sort_order Int    @default(0)
+
+  product Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  group   ModifierGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+
+  @@id([product_id, group_id])
+  @@map("product_modifier_groups")
+}
+
+model QrCodeLink {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenant_id   String    @db.Uuid
+  branch_id   String    @db.Uuid
+  qr_token    String    @unique @db.VarChar(64)
+  target_type String    @db.VarChar(32) // GENERAL_MENU | BRANCH_MENU | DINING_TABLE
+  table_id    String?   @db.Uuid
+  label       String    @db.VarChar(128)
+  is_active   Boolean   @default(true)
+  revoked_at  DateTime? @db.Timestamptz
+  created_at  DateTime  @default(now()) @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, branch_id, is_active])
+  @@map("qr_code_links")
+}
+
