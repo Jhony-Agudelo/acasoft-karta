@@ -315,6 +315,34 @@ async function main() {
     console.log('✓ Sucursal demo creada.');
   }
 
+  // Activar módulos predeterminados para el tenant demo
+  const demoModules = planEntitlements['PLAN_OPERATIONS_PRO'] || [];
+  for (const modKey of demoModules) {
+    const existing = await prisma.tenantModuleSetting.findFirst({
+      where: {
+        tenant_id: demoTenant.id,
+        branch_id: null,
+        module_key: modKey,
+      },
+    });
+    if (existing) {
+      await prisma.tenantModuleSetting.update({
+        where: { id: existing.id },
+        data: { enabled: true },
+      });
+    } else {
+      await prisma.tenantModuleSetting.create({
+        data: {
+          tenant_id: demoTenant.id,
+          branch_id: null,
+          module_key: modKey,
+          enabled: true,
+        },
+      });
+    }
+  }
+  console.log('✓ Módulos base activados para el tenant demo.');
+
   // Usuario Admin Demo
   const existingUser = await prisma.user.findFirst({
     where: { email: demoEmail },

@@ -29,8 +29,13 @@ export function useBranchCapabilities(customBranchId?: string) {
   });
 
   const hasModule = (moduleKey: string): boolean => {
-    if (!query.data?.modules) return false;
-    return !!query.data.modules[moduleKey];
+    if ((query.data as any)?.enabledModules && Array.isArray((query.data as any).enabledModules)) {
+      return (query.data as any).enabledModules.includes(moduleKey);
+    }
+    if (query.data?.modules) {
+      return !!query.data.modules[moduleKey];
+    }
+    return false;
   };
 
   const hasFulfillment = (fulfillmentType: 'DINE_IN' | 'PICKUP' | 'DELIVERY'): boolean => {
@@ -38,9 +43,17 @@ export function useBranchCapabilities(customBranchId?: string) {
     return query.data.activeFulfillments.includes(fulfillmentType);
   };
 
+  const capabilities =
+    query.data?.modules ||
+    ((query.data as any)?.enabledModules
+      ? Object.fromEntries(
+          ((query.data as any).enabledModules as string[]).map((k: string) => [k, true]),
+        )
+      : {});
+
   return {
     ...query,
-    capabilities: query.data?.modules || {},
+    capabilities,
     activeFulfillments: query.data?.activeFulfillments || [],
     operatingProfile: query.data?.operatingProfile,
     hasModule,

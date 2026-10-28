@@ -80,11 +80,19 @@ export class CapabilitiesService {
       }
     }
 
+    const modules: Record<string, boolean> = {};
+    for (const [key, modDef] of Object.entries(MODULES_CATALOG)) {
+      if (!modDef.is_post_mvp) {
+        modules[key] = enabledModules.includes(key);
+      }
+    }
+
     return {
       tenantId,
       branchId: branchId || null,
       planId: tenant.plan_id,
       enabledModules,
+      modules,
     };
   }
 
