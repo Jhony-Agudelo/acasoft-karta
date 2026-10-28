@@ -15,6 +15,9 @@ import { AdminCatalogPage } from './features/admin-catalog/AdminCatalogPage';
 import { QrCodeCenterPage } from './features/admin-catalog/QrCodeCenterPage';
 import { StorefrontPage } from './features/public-storefront/StorefrontPage';
 import { QrResolverPage } from './features/public-storefront/QrResolverPage';
+import { PublicOrderTrackerPage } from './features/public-storefront/PublicOrderTrackerPage';
+import { DeliveryZonesPage } from './features/admin-delivery/DeliveryZonesPage';
+import { CustomersDirectoryPage } from './features/admin-customers/CustomersDirectoryPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   UtensilsCrossed,
@@ -39,6 +42,7 @@ export const App: React.FC = () => {
       <Route path="/r/:restaurantSlug" element={<StorefrontPage />} />
       <Route path="/r/:restaurantSlug/b/:branchSlug" element={<StorefrontPage />} />
       <Route path="/q/:qrToken" element={<QrResolverPage />} />
+      <Route path="/t/:publicToken" element={<PublicOrderTrackerPage />} />
 
       {/* Rutas Protegidas sin Layout Principal */}
       <Route
@@ -73,6 +77,8 @@ export const App: React.FC = () => {
         <Route path="admin/settings" element={<SettingsPage />} />
         <Route path="admin/menu" element={<AdminCatalogPage />} />
         <Route path="admin/qr-codes" element={<QrCodeCenterPage />} />
+        <Route path="admin/delivery-zones" element={<DeliveryZonesPage />} />
+        <Route path="admin/customers" element={<CustomersDirectoryPage />} />
 
         {/* Módulos Protegidos por Motor de Capacidades */}
         <Route

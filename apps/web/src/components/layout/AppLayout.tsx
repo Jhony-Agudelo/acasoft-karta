@@ -24,6 +24,8 @@ import {
   ChevronDown,
   Sparkles,
   QrCode,
+  MapPin,
+  Users,
 } from 'lucide-react';
 
 interface BranchItem {
@@ -139,9 +141,28 @@ export const AppLayout: React.FC = () => {
             );
           })}
 
-          <div className="pt-6 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-            Configuración & Núcleo
-          </div>
+          <Link
+            to="/admin/delivery-zones"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              location.pathname === '/admin/delivery-zones'
+                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+            }`}
+          >
+            <MapPin className="h-4 w-4 text-stone-400" />
+            Zonas de Domicilio
+          </Link>
+          <Link
+            to="/admin/customers"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              location.pathname === '/admin/customers'
+                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+            }`}
+          >
+            <Users className="h-4 w-4 text-stone-400" />
+            Directorio de Clientes
+          </Link>
           <Link
             to="/admin/capabilities"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
@@ -238,6 +259,22 @@ export const AppLayout: React.FC = () => {
                     </Link>
                   ))}
                   <div className="pt-4 border-t border-stone-100 mt-4 space-y-1">
+                    <Link
+                      to="/admin/delivery-zones"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Zonas de Domicilio
+                    </Link>
+                    <Link
+                      to="/admin/customers"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
+                    >
+                      <Users className="h-4 w-4" />
+                      Directorio de Clientes
+                    </Link>
                     <Link
                       to="/admin/capabilities"
                       onClick={() => setMobileMenuOpen(false)}

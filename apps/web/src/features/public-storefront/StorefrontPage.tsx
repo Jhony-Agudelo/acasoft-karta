@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api-client';
 import { useCartStore } from '../../stores/cart.store';
 import { ProductModal } from './ProductModal';
+import { CheckoutModal } from './CheckoutModal';
 import {
   DIAN_FISCAL_DISCLAIMER_TEXT,
   TaxProfileMode,
@@ -36,6 +37,7 @@ export const StorefrontPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   // 1. Obtener datos de la marca y sucursales
   const { data: storeInfo, isLoading: isLoadingStore } = useQuery({
@@ -578,11 +580,14 @@ export const StorefrontPage: React.FC = () => {
               </div>
 
               <button
-                onClick={handleSendWhatsAppOrder}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2"
+                onClick={() => {
+                  setIsCartDrawerOpen(false);
+                  setIsCheckoutModalOpen(true);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-lg shadow-orange-600/25 transition flex items-center justify-center gap-2"
               >
                 <Send className="h-4 w-4" />
-                <span>Enviar Pedido por WhatsApp</span>
+                <span>Terminar pedido por WhatsApp</span>
               </button>
 
               <button
@@ -594,6 +599,19 @@ export const StorefrontPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Checkout con Selección de Zona y WhatsApp */}
+      {currentBranch && (
+        <CheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          branchId={currentBranch.id}
+          storeKey={storeKey}
+          cartItems={cartItems}
+          cartSummary={cartSummary}
+          taxProfile={taxProfile}
+        />
       )}
     </div>
   );
