@@ -343,32 +343,100 @@ async function main() {
   }
   console.log('✓ Módulos base activados para el tenant demo.');
 
-  // Usuario Admin Demo
-  const existingUser = await prisma.user.findFirst({
-    where: { email: demoEmail },
-  });
+  // 7.1 Usuarios Demo para Todos los Roles Operativos y de Plataforma
+  const demoUsers = [
+    {
+      email: 'admin@karta.co',
+      name: 'Carlos Propietario (Admin)',
+      roleKey: 'TENANT_ADMIN',
+      phone: '+573001234567',
+    },
+    {
+      email: 'gerente@karta.co',
+      name: 'Laura Gerente',
+      roleKey: 'BRANCH_MANAGER',
+      phone: '+573001234568',
+    },
+    {
+      email: 'cajero@karta.co',
+      name: 'Mateo Cajero',
+      roleKey: 'CASHIER',
+      phone: '+573001234569',
+    },
+    {
+      email: 'mesero@karta.co',
+      name: 'Juan Mesero',
+      roleKey: 'WAITER',
+      phone: '+573001234570',
+    },
+    {
+      email: 'cocina@karta.co',
+      name: 'Andrea Jefe de Cocina',
+      roleKey: 'KITCHEN',
+      phone: '+573001234571',
+    },
+    {
+      email: 'repartidor@karta.co',
+      name: 'Diego Repartidor',
+      roleKey: 'DISPATCH_DRIVER',
+      phone: '+573001234572',
+    },
+    {
+      email: 'superadmin@karta.co',
+      name: 'Sophia SaaS Superadmin',
+      roleKey: 'PLATFORM_ADMIN',
+      phone: '+573001234573',
+    },
+  ];
 
-  if (!existingUser) {
-    await prisma.user.create({
-      data: {
-        email: demoEmail,
+  for (const u of demoUsers) {
+    const user = await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        name: u.name,
         password_hash: hashedPassword,
-        name: 'Carlos Admin Karta',
-        phone: '+573001234567',
         status: 'ACTIVE',
         must_change_password: false,
-        memberships: {
-          create: {
-            tenant_id: demoTenant.id,
-            role_key: 'TENANT_ADMIN',
-            branch_scope: [],
-            is_active: true,
-          },
-        },
+      },
+      create: {
+        email: u.email,
+        name: u.name,
+        password_hash: hashedPassword,
+        phone: u.phone,
+        status: 'ACTIVE',
+        must_change_password: false,
       },
     });
-    console.log('✓ Usuario Admin demo creado (admin@karta.co / Password123!).');
+
+    const existingMembership = await prisma.membership.findFirst({
+      where: {
+        tenant_id: demoTenant.id,
+        user_id: user.id,
+      },
+    });
+
+    if (existingMembership) {
+      await prisma.membership.update({
+        where: { id: existingMembership.id },
+        data: {
+          role_key: u.roleKey,
+          is_active: true,
+          branch_scope: [],
+        },
+      });
+    } else {
+      await prisma.membership.create({
+        data: {
+          tenant_id: demoTenant.id,
+          user_id: user.id,
+          role_key: u.roleKey,
+          branch_scope: [],
+          is_active: true,
+        },
+      });
+    }
   }
+  console.log(`✓ ${demoUsers.length} usuarios demo creados para inicio rápido (clave común: Password123!).`);
 
   console.log('--- Seed completado exitosamente ---');
 }
