@@ -55,6 +55,24 @@ export class KitchenKdsController {
         });
         branchId = firstBranch?.id;
       }
+    } else {
+      // Validar que la sucursal indicada pertenezca al tenant del usuario autenticado
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: branchId, tenant_id: user.tenantId },
+        select: { id: true },
+      });
+      if (!branch) {
+        throw new ForbiddenException({
+          errorCode: 'FORBIDDEN',
+          message: 'No posee acceso a la sucursal indicada o no pertenece a su restaurante.',
+        });
+      }
+      if (user.branchScope && user.branchScope.length > 0 && !user.branchScope.includes(branchId)) {
+        throw new ForbiddenException({
+          errorCode: 'BRANCH_SCOPE_FORBIDDEN',
+          message: 'Usuario no asignado a esta sucursal.',
+        });
+      }
     }
 
     if (!branchId) {
