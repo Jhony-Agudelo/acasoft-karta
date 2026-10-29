@@ -48,6 +48,8 @@ model Tenant {
   order_edits            OrderEdit[]
   kitchen_stations       KitchenStation[]
   payments               Payment[]
+  subscription           Subscription?
+  subscription_invoices  SubscriptionInvoice[]
 
   @@map("tenants")
 }
@@ -113,8 +115,10 @@ model User {
 
   memberships      Membership[]
   audit_events     AuditEvent[]
-  created_payments Payment[]    @relation("PaymentCreator")
-  voided_payments  Payment[]    @relation("PaymentVoider")
+  created_payments      Payment[]             @relation("PaymentCreator")
+  voided_payments       Payment[]             @relation("PaymentVoider")
+  updated_subscriptions Subscription[]        @relation("SubscriptionUpdater")
+  recorded_invoices     SubscriptionInvoice[] @relation("InvoiceRecorder")
 
   @@map("users")
 }
@@ -538,6 +542,7 @@ model Order {
   @@unique([tenant_id, idempotency_key], name: "uq_orders_tenant_idempotency")
   @@index([tenant_id, branch_id, status, created_at(sort: Desc)], name: "idx_orders_panel")
   @@index([tenant_id, customer_id, status], name: "idx_orders_customer_active")
+  @@index([tenant_id, branch_id, status, payment_policy, payment_status, created_at(sort: Desc)], name: "idx_orders_reporting")
   @@map("orders")
 }
 
@@ -646,6 +651,46 @@ model Payment {
   @@unique([tenant_id, idempotency_key], name: "uq_payments_tenant_idempotency")
   @@index([tenant_id, order_id, status], name: "idx_payments_tenant_order")
   @@map("payments")
+}
+
+model Subscription {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenant_id            String    @unique @db.Uuid
+  plan_id              String    @db.VarChar(64)
+  status               String    @default("TRIALING") @db.VarChar(32) // TRIALING | ACTIVE | PAST_DUE | SUSPENDED
+  current_period_start DateTime  @default(now()) @db.Timestamptz(6)
+  current_period_end   DateTime  @db.Timestamptz(6)
+  updated_by           String?   @db.Uuid
+  updated_at           DateTime  @updatedAt @db.Timestamptz(6)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  updater  User?                 @relation("SubscriptionUpdater", fields: [updated_by], references: [id])
+  invoices SubscriptionInvoice[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionInvoice {
+  id                     String    @id @default(uuid()) @db.Uuid
+  tenant_id              String    @db.Uuid
+  subscription_id        String    @db.Uuid
+  invoice_code           String    @db.VarChar(64)
+  plan_id                String    @db.VarChar(64)
+  amount_cop             Int       @default(0)
+  status                 String    @default("PAID") @db.VarChar(32) // PAID | VOIDED
+  payment_reference_note String?   @db.Text
+  issued_at              DateTime  @default(now()) @db.Timestamptz(6)
+  recorded_by            String    @db.Uuid
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+  recorder     User         @relation("InvoiceRecorder", fields: [recorded_by], references: [id])
+
+  @@unique([tenant_id, invoice_code], name: "uq_invoices_tenant_code")
+  @@index([tenant_id, subscription_id])
+  @@map("subscription_invoices")
 }
 
 

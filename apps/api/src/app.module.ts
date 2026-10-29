@@ -16,12 +16,14 @@ import { OrderingModule } from './modules/ordering/ordering.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
+import { BillingSubscriptionModule } from './modules/billing-subscription/billing-subscription.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantContextGuard } from './common/guards/tenant-context.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { ModuleCapabilityGuard } from './common/guards/module-capability.guard';
+import { SubscriptionStatusGuard } from './common/guards/subscription-status.guard';
 import { UnifiedExceptionFilter } from './common/filters/unified-exception.filter';
 
 @Module({
@@ -44,6 +46,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     NotificationsModule,
     PaymentsModule,
     KitchenModule,
+    BillingSubscriptionModule,
   ],
   providers: [
     {
@@ -61,6 +64,10 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     {
       provide: APP_GUARD,
       useClass: ModuleCapabilityGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: SubscriptionStatusGuard,
     },
     {
       provide: APP_FILTER,

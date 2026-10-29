@@ -275,6 +275,44 @@ export const OPERATING_PROFILES = {
 
 export type OperatingProfileKey = keyof typeof OPERATING_PROFILES;
 
+export const PLAN_ENTITLEMENTS: Record<string, readonly string[]> = {
+  PLAN_STARTER_WHATSAPP: [
+    'ordering',
+    'channel.pickup',
+    'channel.delivery',
+    'notifications.whatsapp_click',
+    'order_panel',
+    'tracking',
+  ],
+  PLAN_OPERATIONS_PRO: [
+    'ordering',
+    'channel.pickup',
+    'channel.delivery',
+    'notifications.whatsapp_click',
+    'order_panel',
+    'tracking',
+    'payments.manual',
+    'kitchen',
+    'notifications.email',
+    'reporting',
+  ],
+  PLAN_ENTERPRISE_DINING: [
+    'ordering',
+    'channel.pickup',
+    'channel.delivery',
+    'dining',
+    'channel.dine_in_qr',
+    'dining.consumption_split',
+    'order_panel',
+    'kitchen',
+    'tracking',
+    'payments.manual',
+    'notifications.whatsapp_click',
+    'notifications.email',
+    'reporting',
+  ],
+};
+
 export interface ModuleValidationSuccess {
   readonly valid: true;
 }

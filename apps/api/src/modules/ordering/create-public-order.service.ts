@@ -50,6 +50,18 @@ export class CreatePublicOrderService {
       });
     }
 
+    // 1.1 Verificación de estado de la suscripción SaaS
+    const sub = await (this.prisma as any).subscription.findUnique({
+      where: { tenant_id: tenantId },
+      select: { status: true },
+    });
+    if (sub?.status === 'SUSPENDED') {
+      throw new ForbiddenException({
+        errorCode: 'TENANT_SUBSCRIPTION_SUSPENDED',
+        message: 'El restaurante no puede recibir pedidos en este momento debido a que su suscripción se encuentra suspendida.',
+      });
+    }
+
     return this.prisma.withTenant(tenantId, async (tx) => {
       // 2. Control de idempotencia aislado por tenant
       const existingOrder = await tx.order.findUnique({
