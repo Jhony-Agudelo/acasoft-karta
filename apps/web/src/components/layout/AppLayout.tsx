@@ -156,6 +156,17 @@ export const AppLayout: React.FC = () => {
             Zonas de Domicilio
           </Link>
           <Link
+            to="/admin/dining-tables"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              location.pathname === '/admin/dining-tables'
+                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+            }`}
+          >
+            <UtensilsCrossed className="h-4 w-4 text-stone-400" />
+            Mesas & Portamesas
+          </Link>
+          <Link
             to="/admin/customers"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
               location.pathname === '/admin/customers'
@@ -270,6 +281,14 @@ export const AppLayout: React.FC = () => {
                     >
                       <MapPin className="h-4 w-4" />
                       Zonas de Domicilio
+                    </Link>
+                    <Link
+                      to="/admin/dining-tables"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
+                    >
+                      <UtensilsCrossed className="h-4 w-4" />
+                      Mesas & Portamesas
                     </Link>
                     <Link
                       to="/admin/customers"

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api-client';
 import { useCartStore } from '../../stores/cart.store';
@@ -25,7 +25,9 @@ import {
   X,
   AlertTriangle,
   Send,
+  UtensilsCrossed,
 } from 'lucide-react';
+
 
 export const StorefrontPage: React.FC = () => {
   const { restaurantSlug = '', branchSlug } = useParams<{
@@ -33,11 +35,21 @@ export const StorefrontPage: React.FC = () => {
     branchSlug?: string;
   }>();
 
+  const [searchParams] = useSearchParams();
+  const qrToken = searchParams.get('qr');
+
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+
+  // 0. Resolver datos del QR si fue escaneado en mesa
+  const { data: qrData } = useQuery({
+    queryKey: ['public-qr-data', qrToken],
+    queryFn: () => apiClient.get(`/public/qr/${qrToken}`),
+    enabled: !!qrToken,
+  });
 
   // 1. Obtener datos de la marca y sucursales
   const { data: storeInfo, isLoading: isLoadingStore } = useQuery({
@@ -174,6 +186,28 @@ export const StorefrontPage: React.FC = () => {
 
       {/* Contenedor Principal */}
       <div className="max-w-4xl mx-auto px-4 -mt-16 sm:-mt-20 relative z-10 space-y-6">
+        {/* Banner de Mesa Activa si escaneó QR */}
+        {qrData?.target_type === 'DINING_TABLE' && (
+          <div className="p-4 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-600 text-white flex items-center justify-between shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center font-black">
+                <UtensilsCrossed className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-sm">
+                  Estás pidiendo en la {qrData.label || 'Mesa del Salón'}
+                </h3>
+                <p className="text-xs text-white/90">
+                  Tus platos se enviarán a la cuenta abierta de tu mesa para ser preparados en cocina.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/25 text-white uppercase tracking-wider">
+              En Mesa
+            </span>
+          </div>
+        )}
+
         {/* Tarjeta de Identidad del Restaurante */}
         <div className="bg-white rounded-3xl p-5 sm:p-7 border border-stone-200/90 shadow-md space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -611,6 +645,11 @@ export const StorefrontPage: React.FC = () => {
           cartItems={cartItems}
           cartSummary={cartSummary}
           taxProfile={taxProfile}
+          tableQrInfo={
+            qrData?.target_type === 'DINING_TABLE' && qrToken
+              ? { qrToken, label: qrData.label || 'Mesa del Salón' }
+              : undefined
+          }
         />
       )}
     </div>

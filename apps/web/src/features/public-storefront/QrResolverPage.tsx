@@ -20,9 +20,9 @@ export const QrResolverPage: React.FC = () => {
       .then((data: any) => {
         if (!isMounted) return;
         if (data.restaurant_slug && data.branch_slug) {
-          navigate(`/r/${data.restaurant_slug}/b/${data.branch_slug}`, { replace: true });
+          navigate(`/r/${data.restaurant_slug}/b/${data.branch_slug}?qr=${qrToken}`, { replace: true });
         } else if (data.restaurant_slug) {
-          navigate(`/r/${data.restaurant_slug}`, { replace: true });
+          navigate(`/r/${data.restaurant_slug}?qr=${qrToken}`, { replace: true });
         } else {
           setIsLoading(false);
           setErrorStatus(404);

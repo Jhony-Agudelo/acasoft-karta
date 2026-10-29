@@ -2,7 +2,19 @@ import {
   formatThermalReceiptText,
   ThermalReceiptData,
   DIAN_THERMAL_RECEIPT_DISCLAIMER,
+  formatDiningPreCuentaText,
+  DiningPreCuentaData,
+  DiningPreCuentaItem,
+  DiningPreCuentaDiner,
 } from '@restaurante-saas/shared';
+
+export {
+  formatDiningPreCuentaText,
+  type DiningPreCuentaData,
+  type DiningPreCuentaItem,
+  type DiningPreCuentaDiner,
+};
+
 
 export type ThermalPaperWidth = '58mm' | '80mm';
 

@@ -1,0 +1,783 @@
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../services/api-client';
+import { formatMoneyCop } from '@restaurante-saas/shared';
+import {
+  printThermalContent,
+  formatDiningPreCuentaText,
+} from '../../services/print-receipt';
+import { useBrandStore } from '../../stores/brand.store';
+import { useAuthStore } from '../../stores/auth.store';
+import { DiningAccountDetail } from './types';
+import {
+  X,
+  Printer,
+  CreditCard,
+  Banknote,
+  Divide,
+  ArrowRightLeft,
+  AlertCircle,
+  CheckCircle2,
+  Receipt,
+  FileText,
+  Clock,
+  ShieldAlert,
+  RotateCcw,
+} from 'lucide-react';
+
+interface BillPreviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  accountId: string;
+  tableCode: string;
+  onOpenSplitDrawer: () => void;
+  onOpenTransferModal: () => void;
+  onSuccess: () => void;
+}
+
+export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
+  isOpen,
+  onClose,
+  accountId,
+  tableCode,
+  onOpenSplitDrawer,
+  onOpenTransferModal,
+  onSuccess,
+}) => {
+  const queryClient = useQueryClient();
+  const { settings } = useBrandStore();
+  const { user } = useAuthStore();
+  const isManager =
+    user?.roleKey === 'TENANT_ADMIN' ||
+    user?.roleKey === 'BRANCH_MANAGER' ||
+    (user as any)?.role === 'TENANT_ADMIN' ||
+    (user as any)?.role === 'BRANCH_MANAGER';
+
+  // Formulario de Pre-cuenta
+  const [tipCop, setTipCop] = useState<number>(0);
+  const [discountTotalCop, setDiscountTotalCop] = useState<number>(0);
+  const [isUpdatingBill, setIsUpdatingBill] = useState(false);
+
+  // Formulario de Cobro
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'POS_TERMINAL' | 'MANUAL_TRANSFER'>('CASH');
+  const [paymentAmountCop, setPaymentAmountCop] = useState<number>(0);
+  const [cashReceivedCop, setCashReceivedCop] = useState<number | ''>('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Formulario de Cierre Especial
+  const [showSpecialClose, setShowSpecialClose] = useState(false);
+  const [resolutionType, setResolutionType] = useState<'COURTESY' | 'WRITTEN_OFF'>('COURTESY');
+  const [resolutionReason, setResolutionReason] = useState('');
+  const [isClosingSpecial, setIsClosingSpecial] = useState(false);
+
+  // Feedback
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Consulta de la cuenta
+  const {
+    data: account,
+    isLoading,
+    refetch,
+  } = useQuery<DiningAccountDetail>({
+    queryKey: ['dining-account-detail', accountId],
+    queryFn: () => apiClient.get(`/accounts/${accountId}`),
+    enabled: isOpen && !!accountId,
+  });
+
+  // Inicializar propina y descuento
+  useEffect(() => {
+    if (account) {
+      setTipCop(account.tip_cop || 0);
+      setDiscountTotalCop(account.discount_total_cop || 0);
+      const pending = Math.max(0, account.grand_total_cop - account.paid_total_cop);
+      setPaymentAmountCop(pending);
+    }
+  }, [account]);
+
+  if (!isOpen) return null;
+
+  const pendingBalanceCop = account
+    ? Math.max(0, account.grand_total_cop - account.paid_total_cop)
+    : 0;
+
+  // Cálculo de cambio en efectivo
+  const cashChangeCop =
+    paymentMethod === 'CASH' && typeof cashReceivedCop === 'number' && cashReceivedCop >= paymentAmountCop
+      ? cashReceivedCop - paymentAmountCop
+      : 0;
+
+  // Actualizar pre-cuenta (Propina / Descuento)
+  const handleUpdateBillPreview = async () => {
+    if (!account) return;
+    setFeedback(null);
+    setIsUpdatingBill(true);
+
+    try {
+      await apiClient.patch(`/accounts/${accountId}/bill-preview`, {
+        expected_account_version: account.version,
+        discount_total_cop: discountTotalCop,
+        tip_cop: tipCop,
+      });
+
+      setFeedback({
+        type: 'success',
+        message: 'Pre-cuenta actualizada y mesa pasada a estado Por Cobrar.',
+      });
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+      onSuccess();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          'Error al actualizar pre-cuenta.',
+      });
+    } finally {
+      setIsUpdatingBill(false);
+    }
+  };
+
+  // Registrar cobro manual
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!account || paymentAmountCop <= 0) return;
+    setFeedback(null);
+    setIsSubmittingPayment(true);
+
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const payload: any = {
+        method: paymentMethod,
+        amount_cop: paymentAmountCop,
+        reference: paymentReference.trim() || undefined,
+      };
+
+      if (paymentMethod === 'CASH' && typeof cashReceivedCop === 'number' && cashReceivedCop > 0) {
+        payload.cash_received_cop = cashReceivedCop;
+        payload.cash_change_cop = cashChangeCop;
+      }
+
+      const res = await apiClient.post(
+        `/accounts/${accountId}/payments/manual`,
+        payload,
+        {
+          headers: { 'Idempotency-Key': idempotencyKey },
+        },
+      );
+
+      setPaymentReference('');
+      setCashReceivedCop('');
+
+      if (res.account?.status === 'CLOSED') {
+        setFeedback({
+          type: 'success',
+          message: '¡Cuenta pagada al 100%! La cuenta ha sido cerrada y la mesa liberada.',
+        });
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setFeedback({
+          type: 'success',
+          message: 'Pago registrado exitosamente.',
+        });
+      }
+
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+      onSuccess();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          'Error al registrar el pago.',
+      });
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+  // Anular pago (Manager)
+  const handleVoidPayment = async (paymentId: string) => {
+    if (!window.confirm('¿Estás seguro de anular este cobro registrado?')) return;
+    setFeedback(null);
+
+    try {
+      await apiClient.post(`/payments/${paymentId}/void`, {
+        reason: 'Anulación autorizada en caja de salón',
+      });
+      setFeedback({ type: 'success', message: 'Cobro anulado correctamente.' });
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+      onSuccess();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message:
+          err?.response?.data?.message || err?.message || 'Error al anular cobro.',
+      });
+    }
+  };
+
+  // Cierre especial (Cortesía o Saldo Incobrable)
+  const handleSpecialClose = async () => {
+    if (!account || !resolutionReason.trim()) {
+      alert('Debes ingresar el motivo de la resolución especial.');
+      return;
+    }
+    setFeedback(null);
+    setIsClosingSpecial(true);
+
+    try {
+      await apiClient.post(`/accounts/${accountId}/close`, {
+        expected_account_version: account.version,
+        resolution_type: resolutionType,
+        reason: resolutionReason.trim(),
+      });
+
+      setFeedback({
+        type: 'success',
+        message: `Cuenta cerrada exitosamente bajo resolución ${resolutionType}.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+      onSuccess();
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          'No se pudo realizar el cierre con resolución.',
+      });
+    } finally {
+      setIsClosingSpecial(false);
+    }
+  };
+
+  // Imprimir pre-cuenta térmica
+  const handlePrintPreCuenta = () => {
+    if (!account) return;
+
+    const allItems = account.orders.flatMap((o) =>
+      o.items.map((i) => ({
+        name: (i.product_snapshot_json as any)?.name || 'Producto',
+        quantity: i.quantity,
+        unitPriceCop: i.unit_price_cop,
+        lineTotalCop: i.line_total_cop,
+        notes: i.notes,
+      })),
+    );
+
+    const receiptContent = formatDiningPreCuentaText({
+      restaurantName: settings.display_name || 'Karta Bistro',
+      branchName: 'Sede Principal',
+      tableCode: tableCode,
+      accountCode: account.account_code,
+      guestCount: account.guest_count,
+      openedAt: account.opened_at,
+      items: allItems,
+      subtotalProductsCop: account.subtotal_products_cop,
+      discountTotalCop: account.discount_total_cop,
+      tipCop: account.tip_cop,
+      grandTotalCop: account.grand_total_cop,
+      paidTotalCop: account.paid_total_cop,
+      payments: account.payments.map((p) => ({
+        method: p.method,
+        amountCop: p.amount_cop,
+        reference: p.reference,
+      })),
+    });
+
+    printThermalContent({ content: receiptContent, width: '80mm' });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/70 backdrop-blur-xs p-3 sm:p-6 overflow-hidden">
+      <div className="bg-white rounded-3xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl border border-stone-200 overflow-hidden animate-slide-up">
+        {/* TopBar */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200 bg-stone-50/70 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-violet-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-violet-500/20">
+              {tableCode}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-stone-900 text-base">
+                  Pre-Cuenta y Caja — Mesa {tableCode}
+                </h3>
+                {account && (
+                  <>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
+                      {account.account_code}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-mono">
+                      v{account.version}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        account.status === 'CLOSED'
+                          ? 'bg-stone-200 text-stone-700'
+                          : account.status === 'REOPENED_ACCOUNTING'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {account.status}
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-stone-500">
+                Ajuste de propina, registro de cobros únicos o combinados y cierre de mesa
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrintPreCuenta}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold text-xs shadow-xs transition"
+              title="Imprimir Pre-cuenta Térmica"
+            >
+              <Printer className="h-4 w-4 text-stone-500" />
+              <span className="hidden sm:inline">Imprimir Pre-cuenta</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Feedback Alert */}
+        {feedback && (
+          <div
+            className={`px-6 py-2.5 text-xs flex items-center gap-2 shrink-0 ${
+              feedback.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border-b border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border-b border-rose-200'
+            }`}
+          >
+            {feedback.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0" />
+            )}
+            <span>{feedback.message}</span>
+          </div>
+        )}
+
+        {/* Dual Panel Body */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* Panel Izquierdo: Comandas y Detalle de la Cuenta */}
+          <div className="flex-1 flex flex-col min-w-0 border-r border-stone-200 bg-white">
+            <div className="p-4 border-b border-stone-100 flex items-center justify-between shrink-0 bg-stone-50/50">
+              <h4 className="font-extrabold text-stone-900 text-xs flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-violet-600" />
+                <span>Comandas Activas de la Mesa ({account?.orders?.length || 0})</span>
+              </h4>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenSplitDrawer}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] border border-amber-200 transition"
+                >
+                  <Divide className="h-3.5 w-3.5" />
+                  <span>División x Persona</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenTransferModal}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-[11px] transition"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  <span>Trasladar</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {isLoading || !account ? (
+                <div className="text-center py-12 text-stone-400 text-xs">
+                  Cargando detalle de la cuenta...
+                </div>
+              ) : account.orders.length === 0 ? (
+                <div className="text-center py-12 text-stone-400 text-xs">
+                  Esta mesa no tiene comandas registradas aún.
+                </div>
+              ) : (
+                account.orders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-xs border-b border-stone-200/60 pb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-stone-800 font-mono">
+                          #{ord.order_code}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-600">
+                          {ord.origin}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-stone-400">
+                        {new Date(ord.created_at).toLocaleTimeString('es-CO', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      {ord.items.map((it) => (
+                        <div
+                          key={it.id}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="text-stone-800 font-medium">
+                            <span className="font-bold text-stone-900 mr-1.5">
+                              {it.quantity}x
+                            </span>
+                            {(it.product_snapshot_json as any)?.name || 'Producto'}
+                            {it.notes && (
+                              <span className="text-[10px] text-amber-600 ml-1.5 italic">
+                                ({it.notes})
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-mono font-bold text-stone-900">
+                            {formatMoneyCop(it.line_total_cop)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Ajustes de Pre-Cuenta: Propina y Descuento */}
+            {account && (
+              <div className="p-4 border-t border-stone-200 bg-stone-50/70 space-y-3 shrink-0">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-700">
+                  <span>Ajustes de Pre-Cuenta:</span>
+                  <button
+                    type="button"
+                    onClick={handleUpdateBillPreview}
+                    disabled={isUpdatingBill}
+                    className="text-violet-600 hover:underline font-bold disabled:opacity-50"
+                  >
+                    {isUpdatingBill ? 'Guardando...' : 'Aplicar Cambios'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {/* Descuento global */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-stone-500 block mb-1">
+                      Descuento Global COP:
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={discountTotalCop}
+                      onChange={(e) =>
+                        setDiscountTotalCop(Math.max(0, parseInt(e.target.value) || 0))
+                      }
+                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  {/* Propina voluntaria */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-stone-500">
+                        Propina (Ley 1935):
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTipCop(
+                            Math.round((account.subtotal_products_cop * 0.1) / 100) * 100,
+                          )
+                        }
+                        className="text-[10px] font-bold text-violet-600 hover:underline"
+                      >
+                        10%
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={tipCop}
+                      onChange={(e) => setTipCop(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-stone-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Panel Derecho: Totales y Registro de Pagos */}
+          <div className="w-96 flex flex-col bg-stone-50/80 shrink-0">
+            {/* Header Totales */}
+            <div className="p-5 border-b border-stone-200 bg-white space-y-2 shrink-0">
+              <div className="flex items-center justify-between text-xs text-stone-500">
+                <span>Subtotal Productos:</span>
+                <span className="font-mono font-bold text-stone-800">
+                  {formatMoneyCop(account?.subtotal_products_cop || 0)}
+                </span>
+              </div>
+              {account?.discount_total_cop ? (
+                <div className="flex items-center justify-between text-xs text-emerald-600">
+                  <span>Descuento Aplicado:</span>
+                  <span className="font-mono font-bold">
+                    -{formatMoneyCop(account.discount_total_cop)}
+                  </span>
+                </div>
+              ) : null}
+              {account?.tip_cop ? (
+                <div className="flex items-center justify-between text-xs text-amber-600">
+                  <span>Propina Voluntaria:</span>
+                  <span className="font-mono font-bold">
+                    +{formatMoneyCop(account.tip_cop)}
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-between pt-2 border-t border-stone-200 text-base font-black text-stone-900">
+                <span>Total Cuenta:</span>
+                <span className="font-mono text-lg text-violet-700">
+                  {formatMoneyCop(account?.grand_total_cop || 0)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1 text-stone-500">
+                <span>Pagado / Recaudado:</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  {formatMoneyCop(account?.paid_total_cop || 0)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 text-sm font-extrabold text-stone-900">
+                <span>Saldo Pendiente:</span>
+                <span className="font-mono text-rose-600">
+                  {formatMoneyCop(pendingBalanceCop)}
+                </span>
+              </div>
+            </div>
+
+            {/* Pagos Realizados */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {account?.payments && account.payments.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
+                    Abonos y Cobros Registrados ({account.payments.length})
+                  </span>
+                  {account.payments.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-2.5 rounded-xl bg-white border border-stone-200 text-xs flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-extrabold text-stone-800">
+                          {p.method} — {formatMoneyCop(p.amount_cop)}
+                        </div>
+                        {p.reference && (
+                          <div className="text-[10px] text-stone-400">
+                            Ref: {p.reference}
+                          </div>
+                        )}
+                      </div>
+
+                      {isManager && account.status !== 'CLOSED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleVoidPayment(p.id)}
+                          className="text-[10px] font-bold text-rose-600 hover:underline p-1 rounded hover:bg-rose-50"
+                        >
+                          Anular
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Formulario de Pago (si hay saldo) */}
+              {pendingBalanceCop > 0 && account?.status !== 'CLOSED' && (
+                <form
+                  onSubmit={handleRecordPayment}
+                  className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-xs space-y-3"
+                >
+                  <h5 className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
+                    <Banknote className="h-4 w-4 text-emerald-600" />
+                    <span>Registrar Cobro en Caja</span>
+                  </h5>
+
+                  {/* Método */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['CASH', 'POS_TERMINAL', 'MANUAL_TRANSFER'] as const).map(
+                      (m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setPaymentMethod(m)}
+                          className={`py-1.5 rounded-xl text-[10px] font-bold border transition ${
+                            paymentMethod === m
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-400 ring-1 ring-emerald-400'
+                              : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          {m === 'CASH'
+                            ? 'Efectivo'
+                            : m === 'POS_TERMINAL'
+                              ? 'Datáfono'
+                              : 'Transferencia'}
+                        </button>
+                      ),
+                    )}
+                  </div>
+
+                  {/* Monto a pagar */}
+                  <div>
+                    <label className="text-[10px] font-bold text-stone-500 block mb-1">
+                      Monto a Cobrar COP:
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={pendingBalanceCop}
+                      value={paymentAmountCop}
+                      onChange={(e) =>
+                        setPaymentAmountCop(
+                          Math.min(
+                            pendingBalanceCop,
+                            Math.max(0, parseInt(e.target.value) || 0),
+                          ),
+                        )
+                      }
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Cambio si es Efectivo */}
+                  {paymentMethod === 'CASH' && (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-bold text-stone-500 shrink-0">
+                          Recibido:
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="Monto entregado..."
+                          value={cashReceivedCop}
+                          onChange={(e) =>
+                            setCashReceivedCop(
+                              e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                            )
+                          }
+                          className="flex-1 px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      {typeof cashReceivedCop === 'number' && cashReceivedCop > 0 && (
+                        <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                          <span>Cambio a devolver:</span>
+                          <span className="font-mono font-black text-sm">
+                            {formatMoneyCop(cashChangeCop)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Referencia opcional */}
+                  <input
+                    type="text"
+                    placeholder="Referencia o voucher (opcional)..."
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    className="w-full px-3 py-1.5 text-[11px] rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingPayment || paymentAmountCop <= 0}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                  >
+                    {isSubmittingPayment
+                      ? 'Procesando pago...'
+                      : `Cobrar ${formatMoneyCop(paymentAmountCop)}`}
+                  </button>
+                </form>
+              )}
+
+              {/* Opción de Cierre Especial para Gerentes */}
+              {isManager && pendingBalanceCop > 0 && account?.status !== 'CLOSED' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSpecialClose(!showSpecialClose)}
+                    className="text-[11px] font-bold text-stone-500 hover:text-stone-800 flex items-center gap-1"
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Cierre Administrativo con Resolución Especial</span>
+                  </button>
+
+                  {showSpecialClose && (
+                    <div className="mt-2 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-bold text-amber-900">
+                          Resolución:
+                        </label>
+                        <select
+                          value={resolutionType}
+                          onChange={(e) => setResolutionType(e.target.value as any)}
+                          className="flex-1 py-1 px-2 rounded-lg bg-white border border-amber-300 text-xs font-bold"
+                        >
+                          <option value="COURTESY">Cortesía de la Casa (COURTESY)</option>
+                          <option value="WRITTEN_OFF">Saldo Incobrable (WRITTEN_OFF)</option>
+                        </select>
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        placeholder="Motivo obligatorio del cierre especial..."
+                        value={resolutionReason}
+                        onChange={(e) => setResolutionReason(e.target.value)}
+                        className="w-full p-2 rounded-lg bg-white border border-amber-300 text-xs placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+
+                      <button
+                        type="button"
+                        disabled={isClosingSpecial || !resolutionReason.trim()}
+                        onClick={handleSpecialClose}
+                        className="w-full py-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs transition disabled:opacity-50"
+                      >
+                        {isClosingSpecial ? 'Cerrando cuenta...' : 'Confirmar Cierre Especial'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -22,6 +22,8 @@ import { KitchenKdsPage } from './features/kitchen-kds/KitchenKdsPage';
 import { DeliveryZonesPage } from './features/admin-delivery/DeliveryZonesPage';
 import { CustomersDirectoryPage } from './features/admin-customers/CustomersDirectoryPage';
 import { ReportsPage } from './features/reports/ReportsPage';
+import { DiningFloorPlanPage } from './features/dining-pos/DiningFloorPlanPage';
+import { DiningAdminSettings } from './features/dining-pos/DiningAdminSettings';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   UtensilsCrossed,
@@ -86,6 +88,14 @@ export const App: React.FC = () => {
         <Route path="admin/delivery-zones" element={<DeliveryZonesPage />} />
         <Route path="admin/customers" element={<CustomersDirectoryPage />} />
         <Route
+          path="admin/dining-tables"
+          element={
+            <CapabilityRoute module="dining" moduleName="Mesas y Portamesas QR">
+              <DiningAdminSettings />
+            </CapabilityRoute>
+          }
+        />
+        <Route
           path="panel"
           element={
             <CapabilityRoute module="order_panel" moduleName="Panel Operativo de Pedidos">
@@ -116,13 +126,7 @@ export const App: React.FC = () => {
           path="dining"
           element={
             <CapabilityRoute module="dining" moduleName="Salón y Mesas">
-              <ModulePlaceholderPage
-                title="Gestión de Salón y Mesas"
-                description="Mapa de mesas, apertura de cuentas y comandas presenciales."
-                moduleKey="dining"
-                phase="Fase 02 (Salón, Mesas & Comensales)"
-                icon={UtensilsCrossed}
-              />
+              <DiningFloorPlanPage />
             </CapabilityRoute>
           }
         />

@@ -12,10 +12,17 @@ import {
   ShieldCheck,
   Clock,
   DollarSign,
+  UtensilsCrossed,
+  KeyRound,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useCartStore } from '../../stores/cart.store';
 import type { CartItem } from '../../stores/cart.store';
+
+export interface TableQrInfo {
+  qrToken: string;
+  label: string;
+}
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -35,6 +42,7 @@ interface CheckoutModalProps {
     tax_type?: any;
     tax_rate_bp?: number;
   };
+  tableQrInfo?: TableQrInfo;
 }
 
 interface DeliveryZoneItem {
@@ -54,15 +62,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   storeKey,
   cartItems,
   cartSummary,
+  tableQrInfo,
 }) => {
   const cartStore = useCartStore();
 
-  const [fulfillmentType, setFulfillmentType] = useState<'PICKUP' | 'DELIVERY'>('DELIVERY');
+  const [fulfillmentType, setFulfillmentType] = useState<'DINE_IN' | 'PICKUP' | 'DELIVERY'>(
+    tableQrInfo ? 'DINE_IN' : 'DELIVERY',
+  );
+  const [tablePin, setTablePin] = useState('');
   const [selectedZoneId, setSelectedZoneId] = useState<string>('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [addressLine, setAddressLine] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+
   const [referenceNotes, setReferenceNotes] = useState('');
   const [notes, setNotes] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
@@ -131,14 +144,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSubmitting(true);
     try {
       const idempotencyKey = crypto.randomUUID();
+      const isDineIn = fulfillmentType === 'DINE_IN';
 
-      const payload = {
+      const payload: any = {
         branch_id: branchId,
-        origin: 'WHATSAPP',
+        origin: isDineIn ? 'TABLE_QR' : 'WHATSAPP',
         fulfillment_type: fulfillmentType,
         customer: {
-          name: name.trim(),
-          phone: phone.trim(),
+          name: name.trim() || (isDineIn ? 'Comensal en Mesa' : ''),
+          phone: phone.trim() || (isDineIn ? '+573000000000' : ''),
           privacy_consent_accepted: true,
         },
         delivery:
@@ -162,6 +176,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           notes: it.notes || null,
         })),
       };
+
+      if (isDineIn && tableQrInfo) {
+        payload.qr_token = tableQrInfo.qrToken;
+        if (tablePin.trim()) {
+          payload.table_pin = tablePin.trim();
+        }
+      }
 
       const res = await apiClient.post('/public/orders', payload, {
         headers: {
@@ -223,33 +244,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {createdOrder.order_code}
                 </div>
                 <p className="text-xs font-semibold text-stone-600 max-w-xs mx-auto">
-                  Tu pedido ha sido registrado en el sistema. Para que la cocina comience su preparación, envía el mensaje por WhatsApp:
+                  {fulfillmentType === 'DINE_IN'
+                    ? '¡Tu comanda ha sido enviada a la mesa! El mesero la confirmará en breve para pasarla a cocina.'
+                    : 'Tu pedido ha sido registrado en el sistema. Para que la cocina comience su preparación, envía el mensaje por WhatsApp:'}
                 </p>
               </div>
 
-              {/* Botón WhatsApp */}
-              <a
-                href={createdOrder.whatsapp_redirect_url}
-                target="_blank"
-                rel="noreferrer"
-                id="btn-finish-whatsapp"
-                className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2.5 transform active:scale-98"
-              >
-                <Send className="h-4 w-4" />
-                <span>Abrir WhatsApp para Confirmar</span>
-              </a>
-
-              {/* Link al Tracker */}
-              <div className="pt-2 border-t border-stone-100">
+              {/* Botón de Acción Principal */}
+              {fulfillmentType === 'DINE_IN' ? (
                 <a
                   href={createdOrder.tracking_url}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline"
+                  className="w-full py-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-sm shadow-xl shadow-orange-600/30 transition flex items-center justify-center gap-2.5 transform active:scale-98"
                 >
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Consultar estado en vivo del pedido</span>
-                  <ExternalLink className="h-3 w-3" />
+                  <Clock className="h-4 w-4" />
+                  <span>Ver Estado en Vivo de tu Comanda</span>
                 </a>
-              </div>
+              ) : (
+                <a
+                  href={createdOrder.whatsapp_redirect_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  id="btn-finish-whatsapp"
+                  className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2.5 transform active:scale-98"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>Abrir WhatsApp para Confirmar</span>
+                </a>
+              )}
+
+              {/* Link al Tracker */}
+              {fulfillmentType !== 'DINE_IN' && (
+                <div className="pt-2 border-t border-stone-100">
+                  <a
+                    href={createdOrder.tracking_url}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline"
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Consultar estado en vivo del pedido</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             /* Formulario de Checkout */
@@ -266,7 +301,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider">
                   Modalidad de Entrega
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100 rounded-2xl">
+                <div
+                  className={`grid ${
+                    tableQrInfo ? 'grid-cols-3' : 'grid-cols-2'
+                  } gap-2 p-1 bg-stone-100 rounded-2xl`}
+                >
+                  {tableQrInfo && (
+                    <button
+                      type="button"
+                      onClick={() => setFulfillmentType('DINE_IN')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                        fulfillmentType === 'DINE_IN'
+                          ? 'bg-white text-orange-600 shadow-2xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      <UtensilsCrossed className="h-4 w-4" />
+                      <span>En Mesa</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setFulfillmentType('DELIVERY')}
@@ -293,6 +346,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Campos para Pedido en Mesa (DINE_IN) */}
+              {fulfillmentType === 'DINE_IN' && tableQrInfo && (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-amber-900">
+                    <UtensilsCrossed className="h-4 w-4 text-amber-600" />
+                    <span>Estás pidiendo en la {tableQrInfo.label}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-stone-700 flex items-center gap-1">
+                      <KeyRound className="h-3.5 w-3.5 text-stone-400" />
+                      <span>PIN de Mesa de 4 dígitos (si tu mesero te lo indicó):</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={tablePin}
+                      onChange={(e) => setTablePin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Ej. 1234"
+                      className="w-full text-center font-mono font-black text-sm tracking-widest rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+              )}
+
 
               {/* Campos para Domicilio */}
               {fulfillmentType === 'DELIVERY' && (
@@ -452,6 +530,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               >
                 {isSubmitting ? (
                   <span>Generando pedido...</span>
+                ) : fulfillmentType === 'DINE_IN' ? (
+                  <>
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <span>Enviar Comanda a la Mesa</span>
+                  </>
                 ) : (
                   <>
                     <Send className="h-4 w-4" />

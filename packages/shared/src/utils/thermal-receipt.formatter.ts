@@ -197,3 +197,182 @@ export function formatThermalReceiptText(
 
   return lines.join('\n');
 }
+
+export interface DiningPreCuentaItem {
+  name: string;
+  quantity: number;
+  unitPriceCop: number;
+  lineTotalCop: number;
+  notes?: string | null;
+}
+
+export interface DiningPreCuentaDiner {
+  label: string;
+  subtotalItemsCop: number;
+  discountShareCop: number;
+  tipShareCop: number;
+  totalCop: number;
+}
+
+export interface DiningPreCuentaData {
+  restaurantName: string;
+  branchName: string;
+  branchAddress?: string | null;
+  branchPhone?: string | null;
+  tableCode: string;
+  accountCode: string;
+  guestCount: number;
+  openedAt: string | Date;
+  items: DiningPreCuentaItem[];
+  subtotalProductsCop: number;
+  discountTotalCop?: number;
+  tipCop?: number;
+  grandTotalCop: number;
+  paidTotalCop: number;
+  payments?: Array<{
+    method: string;
+    amountCop: number;
+    reference?: string | null;
+  }>;
+  dinerDistribution?: {
+    splitRule: string;
+    diners: DiningPreCuentaDiner[];
+    unassignedAmountCop: number;
+  };
+}
+
+export const DIAN_DINING_DISCLAIMER =
+  'DOCUMENTO INFORMATIVO DE SALÓN / PRE-CUENTA — NO ES FACTURA DE VENTA NI DOCUMENTO EQUIVALENTE DIAN (Un solo cobro consolidado en caja)';
+
+/**
+ * Genera el texto para impresora térmica (58mm / 80mm) de la pre-cuenta de mesa,
+ * incluyendo la tabla informativa de distribución por persona si está configurada.
+ */
+export function formatDiningPreCuentaText(
+  data: DiningPreCuentaData,
+  options: { width: '58mm' | '80mm' } = { width: '80mm' },
+): string {
+  const cols = options.width === '58mm' ? 32 : 42;
+  const separator = '-'.repeat(cols);
+  const doubleSeparator = '='.repeat(cols);
+
+  const center = (text: string): string => {
+    if (text.length >= cols) return text;
+    const leftPad = Math.floor((cols - text.length) / 2);
+    return ' '.repeat(leftPad) + text;
+  };
+
+  const wrapText = (text: string): string[] => {
+    const words = text.split(' ');
+    const wrapped: string[] = [];
+    let current = '';
+
+    for (const word of words) {
+      if ((current + (current ? ' ' : '') + word).length <= cols) {
+        current += (current ? ' ' : '') + word;
+      } else {
+        if (current) wrapped.push(center(current));
+        current = word;
+      }
+    }
+    if (current) wrapped.push(center(current));
+    return wrapped;
+  };
+
+  const line2 = (left: string, right: string): string => {
+    const space = cols - left.length - right.length;
+    if (space <= 0) return `${left.slice(0, Math.max(0, cols - right.length - 1))} ${right}`;
+    return left + ' '.repeat(space) + right;
+  };
+
+  const lines: string[] = [];
+
+  // Encabezado
+  lines.push(center(data.restaurantName.toUpperCase()));
+  lines.push(center(data.branchName));
+  if (data.branchAddress) lines.push(center(data.branchAddress));
+  if (data.branchPhone) lines.push(center(`Tel: ${data.branchPhone}`));
+  lines.push(doubleSeparator);
+  lines.push(center('*** PRE-CUENTA DE SALÓN ***'));
+  lines.push(doubleSeparator);
+
+  // Datos de la mesa y cuenta
+  lines.push(line2(`MESA: ${data.tableCode}`, `CUENTA: ${data.accountCode}`));
+  const dateStr =
+    typeof data.openedAt === 'string'
+      ? new Date(data.openedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      : data.openedAt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  lines.push(line2('Personas:', String(data.guestCount)));
+  lines.push(line2('Apertura:', dateStr));
+  lines.push(separator);
+
+  // Detalle de ítems
+  lines.push(line2('CANT  DESCRIPCIÓN', 'VALOR'));
+  lines.push(separator);
+
+  for (const item of data.items) {
+    const itemHeader = `${item.quantity}x ${item.name}`;
+    lines.push(line2(itemHeader, formatMoneyCop(item.lineTotalCop)));
+    if (item.notes) {
+      lines.push(`  * ${item.notes}`);
+    }
+  }
+
+  lines.push(separator);
+
+  // Totales
+  lines.push(line2('Subtotal Productos:', formatMoneyCop(data.subtotalProductsCop)));
+
+  if (data.discountTotalCop && data.discountTotalCop > 0) {
+    lines.push(line2('Descuento:', `-${formatMoneyCop(data.discountTotalCop)}`));
+  }
+
+  if (data.tipCop && data.tipCop > 0) {
+    lines.push(line2('Propina Vol. (10% Ley 1935):', formatMoneyCop(data.tipCop)));
+  }
+
+  lines.push(doubleSeparator);
+  lines.push(line2('TOTAL CUENTA:', formatMoneyCop(data.grandTotalCop)));
+  lines.push(doubleSeparator);
+
+  if (data.paidTotalCop > 0) {
+    lines.push(line2('Total Pagado / Abonado:', formatMoneyCop(data.paidTotalCop)));
+    const pending = Math.max(0, data.grandTotalCop - data.paidTotalCop);
+    lines.push(line2('SALDO POR COBRAR:', formatMoneyCop(pending)));
+    lines.push(separator);
+  }
+
+  // Distribución Informativa por Persona (si existe)
+  if (data.dinerDistribution && data.dinerDistribution.diners.length > 0) {
+    lines.push('');
+    lines.push(center('DISTRIBUCIÓN INFORMATIVA POR PERSONA'));
+    lines.push(center('(Un solo pago consolidado en caja)'));
+    lines.push(separator);
+
+    for (const diner of data.dinerDistribution.diners) {
+      lines.push(line2(`* ${diner.label}:`, formatMoneyCop(diner.totalCop)));
+      if (options.width === '80mm') {
+        const detailParts: string[] = [];
+        detailParts.push(`Cons: ${formatMoneyCop(diner.subtotalItemsCop)}`);
+        if (diner.tipShareCop > 0) detailParts.push(`Prop: +${formatMoneyCop(diner.tipShareCop)}`);
+        if (diner.discountShareCop > 0) detailParts.push(`Desc: -${formatMoneyCop(diner.discountShareCop)}`);
+        lines.push(`    (${detailParts.join(' | ')})`);
+      }
+    }
+
+    if (data.dinerDistribution.unassignedAmountCop > 0) {
+      lines.push(line2('  Por asignar / General:', formatMoneyCop(data.dinerDistribution.unassignedAmountCop)));
+    }
+    lines.push(separator);
+  }
+
+  // Leyenda fiscal
+  lines.push('');
+  lines.push(...wrapText(DIAN_DINING_DISCLAIMER));
+  lines.push('');
+  lines.push(center('¡GRACIAS POR SU VISITA!'));
+  lines.push('\n\n\n'); // Espacio para corte
+
+  return lines.join('\n');
+}
+

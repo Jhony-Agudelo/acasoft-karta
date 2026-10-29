@@ -72,6 +72,7 @@ export interface CalculateConsumptionSplitResult {
 export function calculateConsumptionDistribution(
   input: CalculateConsumptionSplitInput,
 ): CalculateConsumptionSplitResult {
+
   const {
     items,
     diners,
@@ -279,3 +280,6 @@ export function calculateConsumptionDistribution(
     is_reconciled,
   };
 }
+
+export { calculateConsumptionDistribution as calculateConsumptionSplit };
+
