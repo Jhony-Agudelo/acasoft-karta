@@ -46,6 +46,8 @@ model Tenant {
   order_items            OrderItem[]
   order_status_events    OrderStatusEvent[]
   order_edits            OrderEdit[]
+  kitchen_stations       KitchenStation[]
+  payments               Payment[]
 
   @@map("tenants")
 }
@@ -85,6 +87,8 @@ model Branch {
   delivery_zones         DeliveryZone[]
   branch_order_sequences BranchOrderSequence[]
   orders                 Order[]
+  kitchen_stations       KitchenStation[]
+  payments               Payment[]
 
   @@unique([tenant_id, slug])
   @@map("branches")
@@ -107,8 +111,10 @@ model User {
   invite_or_reset_expires_at DateTime? @db.Timestamptz
   created_at                 DateTime  @default(now()) @db.Timestamptz
 
-  memberships  Membership[]
-  audit_events AuditEvent[]
+  memberships      Membership[]
+  audit_events     AuditEvent[]
+  created_payments Payment[]    @relation("PaymentCreator")
+  voided_payments  Payment[]    @relation("PaymentVoider")
 
   @@map("users")
 }
@@ -527,6 +533,7 @@ model Order {
   items                              OrderItem[]
   status_events                      OrderStatusEvent[]
   edits                              OrderEdit[]
+  payments                           Payment[]
 
   @@unique([tenant_id, idempotency_key], name: "uq_orders_tenant_idempotency")
   @@index([tenant_id, branch_id, status, created_at(sort: Desc)], name: "idx_orders_panel")
@@ -555,6 +562,7 @@ model OrderItem {
   product                 Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, order_id], name: "idx_order_items_order")
+  @@index([tenant_id, station_key, status], name: "idx_order_items_kds")
   @@map("order_items")
 }
 
@@ -591,6 +599,53 @@ model OrderEdit {
 
   @@index([tenant_id, order_id, occurred_at(sort: Desc)], name: "idx_order_edits_tenant_order")
   @@map("order_edits")
+}
+
+model KitchenStation {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenant_id  String   @db.Uuid
+  branch_id  String   @db.Uuid
+  key        String   @db.VarChar(40)
+  name       String   @db.VarChar(80)
+  sort_order Int      @default(0)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch     Branch   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, branch_id, key], name: "uq_kitchen_stations_tenant_branch_key")
+  @@map("kitchen_stations")
+}
+
+model Payment {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenant_id         String    @db.Uuid
+  branch_id         String    @db.Uuid
+  order_id          String?   @db.Uuid
+  account_id        String?   @db.Uuid
+  method            String    @db.VarChar(24)
+  amount_cop        Int
+  cash_received_cop Int?
+  change_given_cop  Int?
+  reference_note    String?   @db.VarChar(120)
+  status            String    @default("APPROVED") @db.VarChar(20)
+  idempotency_key   String    @db.VarChar(64)
+  created_by        String    @db.Uuid
+  voided_by         String?   @db.Uuid
+  voided_at         DateTime? @db.Timestamptz(6)
+  voided_reason     String?   @db.Text
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant            Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch            Branch    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  order             Order?    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  creator           User      @relation("PaymentCreator", fields: [created_by], references: [id])
+  voider            User?     @relation("PaymentVoider", fields: [voided_by], references: [id])
+
+  @@unique([tenant_id, idempotency_key], name: "uq_payments_tenant_idempotency")
+  @@index([tenant_id, order_id, status], name: "idx_payments_tenant_order")
+  @@map("payments")
 }
 
 
