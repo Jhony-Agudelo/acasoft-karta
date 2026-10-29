@@ -189,3 +189,4 @@ Si un plato ya fue despachado al KDS, el mesero debe coordinar con el jefe de co
 
 ### ¿Qué sucede si dos meseros toman comandas en la misma mesa al mismo tiempo?
 Karta utiliza **control de concurrencia optimista** mediante el campo `version` de la cuenta. Si ocurre una colisión simultánea, el sistema guarda la primera orden y notifica al segundo mesero para refrescar la pantalla sin sobrescribir ni duplicar productos.
+

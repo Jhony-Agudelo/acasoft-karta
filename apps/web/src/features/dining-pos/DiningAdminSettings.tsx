@@ -5,6 +5,11 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useBrandStore } from '../../stores/brand.store';
 import { QRCodeSVG } from 'qrcode.react';
 import {
+  printPortamesaStands,
+  downloadPortamesaPng,
+  StandTableInfo,
+} from '../../services/print-stand';
+import {
   UtensilsCrossed,
   Layers,
   Plus,
@@ -212,232 +217,50 @@ export const DiningAdminSettings: React.FC = () => {
   };
 
   const handlePrintStand = (table: TableAdminItem) => {
-    const qrUrl = getTableQrUrl(table);
     const area = areas.find((a) => a.id === table.area_id);
-    const brandName = (settings.display_name || 'Karta Bistro').toUpperCase();
-    const areaName = (area?.name || 'Salón Principal').toUpperCase();
+    const tableInfo: StandTableInfo = {
+      id: table.id,
+      code: table.code,
+      capacity: table.capacity,
+      areaName: area?.name || 'Salón Principal',
+      qrUrl: getTableQrUrl(table),
+    };
+    printPortamesaStands({
+      tables: [tableInfo],
+      brandName: settings.display_name || 'Karta Bistro',
+    });
+  };
 
-    const svgEl = document.getElementById(`stand-qr-svg-${table.id}`);
-    const svgHtml = svgEl ? svgEl.outerHTML : '';
-
-    const printWindow = window.open('', '_blank', 'width=650,height=850');
-    if (!printWindow) {
-      window.print();
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Portamesa QR - Mesa ${table.code}</title>
-          <style>
-            @page {
-              size: A6 portrait;
-              margin: 0;
-            }
-            * {
-              box-sizing: border-box;
-              margin: 0;
-              padding: 0;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              background: #ffffff;
-              padding: 6mm;
-            }
-            .stand-container {
-              width: 95mm;
-              height: 138mm;
-              border: 2px dashed #78716c;
-              border-radius: 16px;
-              padding: 8mm 6mm;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: space-between;
-              text-align: center;
-              background: #ffffff;
-            }
-            .brand-title {
-              font-size: 13pt;
-              font-weight: 900;
-              color: #ea580c;
-              letter-spacing: 2px;
-              text-transform: uppercase;
-            }
-            .area-subtitle {
-              font-size: 8.5pt;
-              font-weight: 700;
-              color: #78716c;
-              margin-top: 2px;
-            }
-            .table-heading {
-              font-size: 28pt;
-              font-weight: 900;
-              color: #1c1917;
-              font-family: monospace;
-              line-height: 1.1;
-              margin-top: 4px;
-            }
-            .instructions {
-              font-size: 8pt;
-              font-weight: 600;
-              color: #57534e;
-              margin-top: 3px;
-            }
-            .qr-wrapper {
-              padding: 4mm;
-              border: 1px solid #e7e5e4;
-              border-radius: 14px;
-              background: #ffffff;
-              margin: 5px 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            .qr-wrapper svg {
-              width: 155px;
-              height: 155px;
-            }
-            .pin-badge {
-              background: #fef3c7;
-              border: 1px solid #fde68a;
-              color: #78350f;
-              font-size: 7.5pt;
-              font-weight: 800;
-              padding: 3px 10px;
-              border-radius: 20px;
-              display: inline-block;
-            }
-            .url-backup {
-              font-size: 6.5pt;
-              font-family: monospace;
-              color: #a8a29e;
-              margin-top: 3px;
-              max-width: 80mm;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-            }
-            .powered-tag {
-              font-size: 7pt;
-              color: #d6d3d1;
-              font-weight: 700;
-              letter-spacing: 1px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="stand-container">
-            <div>
-              <div class="brand-title">${brandName}</div>
-              <div class="area-subtitle">${areaName}</div>
-            </div>
-            <div>
-              <div class="table-heading">MESA ${table.code}</div>
-              <div class="instructions">Escanea con tu celular para ver la carta y pedir</div>
-            </div>
-            <div class="qr-wrapper">
-              ${svgHtml}
-            </div>
-            <div>
-              <div class="pin-badge">Tu mesero te dará el PIN de 4 dígitos al sentarte</div>
-              <div class="url-backup">${qrUrl}</div>
-            </div>
-            <div class="powered-tag">POWERED BY KARTA</div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.focus();
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+  const handlePrintAllStands = () => {
+    if (!tables.length) return;
+    const tableInfos: StandTableInfo[] = tables.map((t) => {
+      const area = areas.find((a) => a.id === t.area_id);
+      return {
+        id: t.id,
+        code: t.code,
+        capacity: t.capacity,
+        areaName: area?.name || 'Salón Principal',
+        qrUrl: getTableQrUrl(t),
+      };
+    });
+    printPortamesaStands({
+      tables: tableInfos,
+      brandName: settings.display_name || 'Karta Bistro',
+    });
   };
 
   const handleDownloadPng = (table: TableAdminItem) => {
-    const svgEl = document.getElementById(`stand-qr-svg-${table.id}`);
-    if (!svgEl) return;
-
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1600;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      // Fondo blanco del portamesas
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Marco de corte para imprenta / acrílico
-      ctx.strokeStyle = '#D6D3D1';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-      // Nombre del restaurante
-      ctx.fillStyle = '#EA580C'; // orange-600
-      ctx.font = 'bold 42px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText((settings.display_name || 'Karta Bistro').toUpperCase(), 600, 180);
-
-      // Zona o Ambiente
-      const area = areas.find((a) => a.id === table.area_id);
-      if (area) {
-        ctx.fillStyle = '#78716C'; // stone-500
-        ctx.font = 'bold 28px sans-serif';
-        ctx.fillText(area.name.toUpperCase(), 600, 230);
-      }
-
-      // Número de mesa
-      ctx.fillStyle = '#1C1917'; // stone-900
-      ctx.font = '900 110px sans-serif';
-      ctx.fillText(`MESA ${table.code}`, 600, 370);
-
-      // Subtítulo
-      ctx.fillStyle = '#57534E'; // stone-600
-      ctx.font = '500 34px sans-serif';
-      ctx.fillText('Escanea con tu celular para ver la carta y pedir', 600, 440);
-
-      // Código QR centrado
-      ctx.drawImage(img, 275, 510, 650, 650);
-
-      // Instrucción de PIN
-      ctx.fillStyle = '#9A3412'; // amber-800
-      ctx.font = 'bold 34px sans-serif';
-      ctx.fillText('Tu mesero te dará el PIN de 4 dígitos al sentarte', 600, 1260);
-
-      // Enlace de respaldo
-      ctx.fillStyle = '#A8A29E'; // stone-400
-      ctx.font = '24px monospace';
-      ctx.fillText(getTableQrUrl(table), 600, 1340);
-
-      // Footer
-      ctx.fillStyle = '#D6D3D1';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillText('Powered by Karta', 600, 1490);
-
-      const pngUrl = canvas.toDataURL('image/png');
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pngUrl;
-      downloadLink.download = `Portamesa-${table.code}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    const area = areas.find((a) => a.id === table.area_id);
+    downloadPortamesaPng(
+      {
+        id: table.id,
+        code: table.code,
+        capacity: table.capacity,
+        areaName: area?.name || 'Salón Principal',
+        qrUrl: getTableQrUrl(table),
+      },
+      settings.display_name || 'Karta Bistro',
+    );
   };
 
   return (
@@ -693,57 +516,93 @@ export const DiningAdminSettings: React.FC = () => {
       {/* TAB 3: PORTAMESAS Y CÓDIGOS QR */}
       {activeTab === 'QR_STANDS' && (
         <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2.5">
-            <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
-            <span>
-              Cada código QR está vinculado de forma opaca y segura a la mesa correspondiente. Al escanearlo, el comensal ve el menú digital y puede enviar pedidos directamente al mesero.
-            </span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+            <div className="flex items-start gap-2.5">
+              <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+              <span>
+                Cada código QR está vinculado de forma opaca y segura a la mesa correspondiente. Al escanearlo, el comensal ve el menú digital y puede enviar pedidos directamente al mesero.
+              </span>
+            </div>
+            {tables.length > 0 && (
+              <button
+                type="button"
+                onClick={handlePrintAllStands}
+                className="shrink-0 py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md shadow-orange-600/20 flex items-center gap-2 transition"
+              >
+                <Printer className="h-4 w-4" />
+                <span>Imprimir Todos ({tables.length})</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {tables.map((table) => {
               const qrUrl = getTableQrUrl(table);
-              const qrToken = getTableQrToken(table);
 
               return (
                 <div
                   key={table.id}
-                  className="p-6 rounded-3xl bg-white border border-stone-200/90 shadow-md text-center space-y-4 hover:shadow-lg transition"
+                  className="p-6 rounded-3xl bg-white border border-stone-200/90 shadow-md text-center space-y-4 hover:shadow-lg transition flex flex-col justify-between"
                 >
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-600">
-                      {settings.display_name || 'Karta Bistro'}
-                    </span>
-                    <h3 className="text-xl font-black text-stone-900">
-                      Mesa {table.code}
-                    </h3>
-                    <p className="text-[11px] text-stone-500">
-                      Escanea para ver la carta y pedir
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-600">
+                        {settings.display_name || 'Karta Bistro'}
+                      </span>
+                      <h3 className="text-xl font-black text-stone-900 font-mono">
+                        Mesa {table.code}
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Escanea para ver la carta y pedir
+                      </p>
+                    </div>
+
+                    {/* QR SVG */}
+                    <div className="p-4 bg-white rounded-2xl border border-stone-200 inline-block shadow-inner">
+                      <QRCodeSVG
+                        id={`tab-stand-qr-${table.id}`}
+                        value={qrUrl}
+                        size={140}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+
+                    <div className="space-y-1 text-[11px] text-stone-400 font-mono truncate px-2">
+                      {qrUrl}
+                    </div>
                   </div>
 
-                  {/* QR SVG */}
-                  <div className="p-4 bg-white rounded-2xl border border-stone-200 inline-block shadow-inner">
-                    <QRCodeSVG
-                      id={`tab-stand-qr-${table.id}`}
-                      value={qrUrl}
-                      size={140}
-                      level="H"
-                      includeMargin={false}
-                    />
-                  </div>
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenStandModal(table)}
+                      className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-2"
+                    >
+                      <QrCode className="h-4 w-4 text-orange-400" />
+                      <span>Previsualizar Portamesa</span>
+                    </button>
 
-                  <div className="space-y-1 text-[11px] text-stone-400 font-mono truncate px-2">
-                    {qrUrl}
-                  </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePrintStand(table)}
+                        className="py-2 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs border border-orange-200 transition flex items-center justify-center gap-1.5"
+                      >
+                        <Printer className="h-3.5 w-3.5 text-orange-600" />
+                        <span>Imprimir</span>
+                      </button>
 
-                  <button
-                    onClick={() => handleOpenStandModal(table)}
-                    className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md shadow-orange-600/20 transition flex items-center justify-center gap-2"
-                  >
-                    <QrCode className="h-4 w-4" />
-                    <span>Ver & Imprimir Portamesa</span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPng(table)}
+                        className="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs border border-stone-200 transition flex items-center justify-center gap-1.5"
+                      >
+                        <Download className="h-3.5 w-3.5 text-stone-600" />
+                        <span>PNG</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -922,37 +781,6 @@ export const DiningAdminSettings: React.FC = () => {
       {/* MODAL 3: PREVISUALIZAR E IMPRIMIR PORTAMESA QR */}
       {standToView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <style>{`
-            @media print {
-              /* Ocultar toda la interfaz de la aplicación */
-              body * {
-                visibility: hidden !important;
-              }
-              /* Mostrar únicamente el portamesas físico centrado */
-              #printable-table-stand, #printable-table-stand * {
-                visibility: visible !important;
-              }
-              #printable-table-stand {
-                position: fixed !important;
-                left: 50% !important;
-                top: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 105mm !important;
-                max-width: 105mm !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-                border: 2px dashed #78716c !important;
-                border-radius: 16px !important;
-                padding: 12mm 8mm !important;
-                background: white !important;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                text-align: center !important;
-                page-break-inside: avoid !important;
-              }
-            }
-          `}</style>
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 overflow-hidden animate-slide-up">
             {/* Header del Modal */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/80">

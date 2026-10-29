@@ -293,6 +293,7 @@ export const LiteOrderPanelPage: React.FC = () => {
               {requestedOrders.map((order) => {
                 const customer = order.customer_snapshot_json || {};
                 const isPickup = order.fulfillment_type === 'PICKUP';
+                const isDineIn = order.fulfillment_type === 'DINE_IN';
 
                 return (
                   <div
@@ -476,6 +477,7 @@ export const LiteOrderPanelPage: React.FC = () => {
               {activeOrders.map((order) => {
                 const customer = order.customer_snapshot_json || {};
                 const isPickup = order.fulfillment_type === 'PICKUP';
+                const isDineIn = order.fulfillment_type === 'DINE_IN';
 
                 return (
                   <div
@@ -570,6 +572,21 @@ export const LiteOrderPanelPage: React.FC = () => {
                         </button>
                       )}
 
+                      {order.status === 'READY' && isDineIn && (
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'SERVED',
+                            })
+                          }
+                          className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <UtensilsCrossed className="w-4 h-4" />
+                          <span>🍽️ Servir en Mesa</span>
+                        </button>
+                      )}
+
                       {order.status === 'READY' && isPickup && (
                         <button
                           onClick={() =>
@@ -578,9 +595,24 @@ export const LiteOrderPanelPage: React.FC = () => {
                               to_status: 'PICKED_UP',
                             })
                           }
-                          className="flex-1 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
+                          className="flex-1 py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-black text-xs transition-colors shadow-sm"
                         >
-                          ✅ Marcar Entregado
+                          ✅ Entregar para Recoger
+                        </button>
+                      )}
+
+                      {order.status === 'READY' && !isPickup && !isDineIn && (
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'DELIVERED',
+                            })
+                          }
+                          className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>✅ Domicilio Entregado</span>
                         </button>
                       )}
 

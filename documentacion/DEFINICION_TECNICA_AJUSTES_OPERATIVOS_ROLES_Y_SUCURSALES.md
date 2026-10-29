@@ -278,3 +278,91 @@ Para facilitar la adopción, inducción de personal y entendimiento del producto
 
 
 
+
+---
+
+## 8. Ajustes Operativos de Salón, Cocina KDS y Portamesas QR (v2.5.1)
+
+En respuesta a las pruebas operativas en vivo, se implementó un conjunto de mejoras críticas para optimizar la coordinación entre salón, cocina y caja, resolver la impresión física de portamesas y garantizar la propiedad estricta de mesas.
+
+### 8.1 Impresión Aislada de Portamesas QR (Servicio Iframe sin Bloqueo de Popups)
+
+#### Diagnóstico del Problema Anterior
+Al intentar imprimir un portamesas, el navegador invocaba `window.open('', '_blank')`, el cual era bloqueado por el detector de ventanas emergentes (popup blocker) de Chrome y Edge. Como fallback, el código ejecutaba `window.print()` en la ventana principal, abriendo el diálogo de impresión sobre el panel de control administrativo y renderizando la lista de mesas en horizontal sin el código QR físico.
+
+#### Arquitectura de Solución (`apps/web/src/services/print-stand.ts`)
+1. **Generación Síncrona de SVG:** Utiliza `renderToStaticMarkup` y `QRCodeSVG` de `qrcode.react` para crear el SVG del código QR directamente en memoria, sin depender de elementos montados en el DOM ni de IDs dinámicos.
+2. **Inyección en Iframe Invisible:** Crea un elemento `<iframe>` oculto en el DOM, inyecta un documento HTML autosuficiente estilizado para formato **A6 vertical (105mm x 148mm / estándar acrílico 10x15cm)** y ejecuta `iframe.contentWindow.print()`.
+   - **Cero bloqueos:** Los navegadores jamás bloquean la impresión desde iframes del mismo origen.
+   - **Aislamiento absoluto:** El diálogo de impresión muestra exclusivamente la tarjeta física del portamesas con branding del restaurante, ambiente, número de mesa gigante, QR de alta resolución e instrucciones de PIN.
+3. **Impresión Masiva de Portamesas:** En la pestaña *"Portamesas y Códigos QR"*, se agregó el botón `🖨️ Imprimir Todos los Portamesas`, que genera todas las tarjetas del restaurante en un solo flujo con saltos de página CSS (`page-break-after: always`).
+4. **Descarga de PNG Ultra HD (1200x1600):** Función `downloadPortamesaPng` para descargar archivos listos para imprenta o corte láser, dibujando el portamesas en un elemento Canvas fuera de pantalla.
+
+---
+
+### 8.2 Separación Estricta de Funciones: Cobro Exclusivo para Caja y Administración
+
+#### Regla Operativa
+El rol de Mesero (`WAITER`) se enfoca exclusivamente en la atención, toma de comandas, servicio de platos y emisión informativa de la cuenta al cliente. El registro de dinero en efectivo, datáfono o transferencias y el cierre definitivo de cuentas corresponde a **Caja** (`CASHIER`) o **Gerencia/Administración** (`BRANCH_MANAGER`, `TENANT_ADMIN`).
+
+#### Implementación Técnica (`BillPreviewModal.tsx`)
+- Se valida la capacidad `canRecordPayment = ['CASHIER', 'BRANCH_MANAGER', 'TENANT_ADMIN', 'PLATFORM_ADMIN'].includes(user.roleKey)`.
+- Si el usuario es `WAITER`:
+  - Se oculta el formulario de selección de medio de pago y el botón verde de *"Cobrar y Cerrar Mesa"*.
+  - Se presenta un aviso informativo claro: *"Modo Pre-Cuenta: El cobro y registro de pagos corresponde a Caja / Administración. Puedes emitir o imprimir la pre-cuenta para entregar al comensal."*
+  - Se mantiene activo el botón de *"Imprimir Pre-Cuenta"* para comandas térmicas de 80mm.
+
+---
+
+### 8.3 Propiedad Exclusiva de Mesas por Mesero (`opened_by`)
+
+#### Regla Operativa
+Una mesa abierta y atendida por un mesero debe permanecer bajo su control exclusivo. Ningún otro mesero puede alterar la comanda, transferir la mesa a otra ubicación ni confirmar pedidos QR de esa mesa, evitando duplicidades, confusiones en propinas y conflictos de servicio.
+
+#### Implementación Backend (`dining.service.ts` y `process-order.service.ts`)
+- En `addOrderToAccount`, `transferTable` y `updateBillPreview`, el backend verifica:
+  ```typescript
+  if (actorRole === 'WAITER' && account.opened_by !== actorId) {
+    throw new ForbiddenException(
+      'Esta mesa está asignada exclusivamente al mesero que abrió la cuenta. Solo dicho mesero o un administrador pueden modificarla.'
+    );
+  }
+  ```
+- Al confirmar pedidos QR (`process-order.service.ts`), si la comanda pertenece a una mesa abierta por otro mesero, se rechaza la confirmación con código 403 Forbidden.
+
+#### Indicadores Visuales en Frontend (`DiningFloorPlanPage.tsx`)
+- **Badge `👤 Mi Mesa`:** Destaca en verde esmeralda las mesas abiertas por el mesero autenticado.
+- **Badge `🔒 Atiende: Juan Mesero`:** En mesas abiertas por compañeros, los botones de acción (`+ Comanda`, `Pre-cuenta`, `Trasladar`) se deshabilitan para otros meseros, mostrando un candado de protección. Administradores y gerentes mantienen acceso maestro para intervenir en caso de relevos de turno.
+- **Toggle "Mis Mesas Asignadas":** Permite al mesero filtrar la pantalla para concentrarse únicamente en sus mesas activas.
+
+---
+
+### 8.4 Notificaciones Reactivas en Tiempo Real para Personal de Salón
+
+#### Canales y Eventos
+El mesero recibe notificaciones auditivas y visuales inmediatas ante dos eventos cruciales transmitidos por Server-Sent Events (SSE):
+1. **`kitchen.order_ready`:** Cocina marca que todos los ítems de una comanda están preparados.
+2. **`dining.qr_order_requested`:** Un comensal sentado en mesa escaneó el QR y envió una solicitud de pedido con su PIN.
+
+#### Componentes de la Experiencia (`AppLayout.tsx`)
+- **Campana de Alertas Global (`🔔`):** Ubicada en la barra superior (desktop y mobile), exhibe un contador numérico con badge anaranjado de alertas no leídas.
+- **Menú Popover Desplegable:** Lista cronológicamente las notificaciones recientes con hora exacta, estado de lectura y enlace rápido hacia `/dining`.
+- **Toast Flotante Automático:** Emerge en la esquina superior derecha con sonido tipo *chime* (Web Audio API), detallando la mesa lista y ofreciendo el botón *"Ver en Salón"*.
+- **Badge Pulsante en Mesa:** En el plano de salón, las mesas con platos terminados en cocina parpadean con el distintivo *"¡Comanda Lista en Cocina!"* y un botón de un clic para marcar como servido.
+
+---
+
+### 8.5 Despacho y Transición de Estados (`READY` $\rightarrow$ `SERVED` / `DELIVERED`)
+
+#### Corrección del Bloqueo Operativo
+Anteriormente, los pedidos en estado `READY` solo mostraban el botón de entrega si el pedido era de recogida (`isPickup`). Los pedidos de salón (`DINE_IN`) y domicilios (`DELIVERY`) quedaban atrapados indefinidamente en *"Listo para Entrega / Recoger"*.
+
+#### Implementación Multicanal de Despacho
+1. **En Cocina KDS (`KitchenKdsPage.tsx`):**
+   - Para `DINE_IN`: Botón `🍽️ Servido en Mesa` $\rightarrow$ transiciona la orden a `SERVED`.
+   - Para `TAKEAWAY`: Botón `📦 Entregado` $\rightarrow$ transiciona la orden a `PICKED_UP`.
+   - Para `DELIVERY`: Botón `🛵 Despachar Domicilio` $\rightarrow$ transiciona la orden a `OUT_FOR_DELIVERY`.
+2. **En Panel Completo y Liviano (`FullOrderPanelPage.tsx` y `LiteOrderPanelPage.tsx`):**
+   - Se habilitaron los botones de transición para cada tipo de cumplimiento según su flujo natural.
+3. **En Plano de Salón (`DiningFloorPlanPage.tsx`):**
+   - El mesero puede marcar directamente los platos como servidos en mesa desde la tarjeta de la mesa en el salón.

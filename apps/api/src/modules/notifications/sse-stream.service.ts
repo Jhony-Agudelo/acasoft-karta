@@ -17,6 +17,7 @@ export type BranchOrderEventType =
   | 'order.uncollected_resolved'
   | 'order.resolution_reverted'
   | 'kitchen.order_updated'
+  | 'kitchen.order_ready'
   | 'dining.table_updated'
   | 'dining.account_opened'
   | 'dining.order_added'

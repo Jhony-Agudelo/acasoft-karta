@@ -264,6 +264,14 @@ export class DiningService {
                 grand_total_cop: true,
                 paid_total_cop: true,
                 uncollected_amount_cop: true,
+                opened_by: true,
+                opener: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
                 opened_at: true,
                 version: true,
                 orders: {
@@ -324,9 +332,12 @@ export class DiningService {
                   grand_total_cop: activeAccount.grand_total_cop,
                   paid_total_cop: activeAccount.paid_total_cop,
                   uncollected_amount_cop: activeAccount.uncollected_amount_cop,
+                  opened_by: activeAccount.opened_by,
+                  opener: activeAccount.opener,
                   opened_at: activeAccount.opened_at,
                   version: activeAccount.version,
                   orders_count: activeAccount.orders.length,
+                  has_ready_orders: activeAccount.orders.some((o: any) => o.status === 'READY'),
                 }
               : null,
             pending_qr_orders: t.orders,
@@ -472,15 +483,24 @@ export class DiningService {
     accountId: string,
     actorId: string,
     dto: AddOrderToAccountDto,
+    actorRole?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
       // 1. Bloquear y verificar la cuenta
       const account = await tx.diningAccount.findFirst({
         where: { id: accountId, tenant_id: tenantId },
-        include: { table: true },
+        include: { table: true, opener: true },
       });
       if (!account) {
         throw new NotFoundException('Cuenta de salón no encontrada.');
+      }
+
+      // Control de asignación exclusiva: un mesero no puede agregar comandas a la mesa de otro mesero
+      if (actorRole === 'WAITER' && account.opened_by !== actorId) {
+        throw new ForbiddenException({
+          errorCode: 'TABLE_LOCKED_BY_ANOTHER_SERVER',
+          message: `Esta mesa está asignada exclusivamente al mesero que abrió la cuenta (${account.opener?.name || 'otro mesero'}). Solo dicho mesero o un administrador pueden tomar comandas en ella.`,
+        });
       }
 
       if (!isActionAllowedOnAccount(account.status as any, 'ADD_ORDER')) {
@@ -712,14 +732,23 @@ export class DiningService {
     accountId: string,
     actorId: string,
     dto: TransferTableDto,
+    actorRole?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const account = await tx.diningAccount.findFirst({
         where: { id: accountId, tenant_id: tenantId },
-        include: { table: true },
+        include: { table: true, opener: true },
       });
       if (!account) {
         throw new NotFoundException('Cuenta de salón no encontrada.');
+      }
+
+      // Control de asignación exclusiva
+      if (actorRole === 'WAITER' && account.opened_by !== actorId) {
+        throw new ForbiddenException({
+          errorCode: 'TABLE_LOCKED_BY_ANOTHER_SERVER',
+          message: `Esta mesa está asignada exclusivamente al mesero que abrió la cuenta (${account.opener?.name || 'otro mesero'}). Solo dicho mesero o un administrador pueden trasladarla.`,
+        });
       }
 
       if (!isActionAllowedOnAccount(account.status as any, 'TRANSFER_TABLE')) {
@@ -828,14 +857,23 @@ export class DiningService {
     accountId: string,
     actorId: string,
     dto: UpdateBillPreviewDto,
+    actorRole?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const account = await tx.diningAccount.findFirst({
         where: { id: accountId, tenant_id: tenantId },
-        include: { table: true },
+        include: { table: true, opener: true },
       });
       if (!account) {
         throw new NotFoundException('Cuenta de salón no encontrada.');
+      }
+
+      // Control de asignación exclusiva
+      if (actorRole === 'WAITER' && account.opened_by !== actorId) {
+        throw new ForbiddenException({
+          errorCode: 'TABLE_LOCKED_BY_ANOTHER_SERVER',
+          message: `Esta mesa está asignada exclusivamente al mesero que abrió la cuenta (${account.opener?.name || 'otro mesero'}).`,
+        });
       }
 
       if (

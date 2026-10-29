@@ -194,3 +194,4 @@ Tu mesero te entregará el PIN verbalmente cuando te dé la bienvenida y abra la
 
 ### ¿Qué pasa si me equivoco al ingresar el PIN?
 El sistema te mostrará una alerta indicando que el PIN es incorrecto. Puedes verificar el número con tu mesero e ingresarlo nuevamente sin perder los platos que ya tienes en el carrito.
+

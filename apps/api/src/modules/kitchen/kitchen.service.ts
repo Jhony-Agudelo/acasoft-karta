@@ -36,7 +36,7 @@ export class KitchenService {
         tenant_id: tenantId,
         branch_id: branchId,
         OR: [
-          { status: { in: ['ACCEPTED', 'PREPARING'] } },
+          { status: { in: ['ACCEPTED', 'PREPARING', 'READY'] } },
           { status: 'RECEIVED', origin: 'WEB_DIRECT' },
         ],
         NOT: {
@@ -47,6 +47,27 @@ export class KitchenService {
       include: {
         items: true,
         customer: true,
+        table: {
+          include: {
+            area: true,
+          },
+        },
+        dining_account: {
+          include: {
+            table: {
+              include: {
+                area: true,
+              },
+            },
+            opener: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
         status_events: {
           orderBy: { occurred_at: 'asc' },
         },
@@ -56,8 +77,38 @@ export class KitchenService {
       },
     });
 
+    const processedByIds = [
+      ...new Set(orders.map((o) => o.processed_by).filter((id): id is string => !!id)),
+    ];
+    const processedByUsers = processedByIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: processedByIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const usersMap = new Map(processedByUsers.map((u) => [u.id, u]));
+
+    const enrichedOrders = orders.map((order) => {
+      const effectiveTable = order.table || order.dining_account?.table;
+      const tableLabel = effectiveTable?.code ? `Mesa ${effectiveTable.code}` : null;
+      const areaName = effectiveTable?.area?.name || null;
+      const waiterUser = order.processed_by ? usersMap.get(order.processed_by) : null;
+      const openerUser = order.dining_account?.opener;
+      const serverName = waiterUser?.name || openerUser?.name || null;
+
+      return {
+        ...order,
+        table_label: tableLabel,
+        table_code: effectiveTable?.code || null,
+        area_name: areaName,
+        server_name: serverName,
+        opener_name: openerUser?.name || null,
+        waiter_name: waiterUser?.name || null,
+      };
+    });
+
     if (stationKey) {
-      return orders
+      return enrichedOrders
         .map((order) => ({
           ...order,
           items: order.items.filter((item) => item.station_key === stationKey),
@@ -65,7 +116,7 @@ export class KitchenService {
         .filter((order) => order.items.length > 0);
     }
 
-    return orders;
+    return enrichedOrders;
   }
 
   /**
@@ -85,6 +136,13 @@ export class KitchenService {
         include: {
           items: true,
           branch: true,
+          table: { include: { area: true } },
+          dining_account: {
+            include: {
+              table: { include: { area: true } },
+              opener: { select: { id: true, name: true, email: true } },
+            },
+          },
         },
       });
 
@@ -156,6 +214,13 @@ export class KitchenService {
           include: {
             items: true,
             branch: true,
+            table: { include: { area: true } },
+            dining_account: {
+              include: {
+                table: { include: { area: true } },
+                opener: { select: { id: true, name: true, email: true } },
+              },
+            },
           },
         });
 
@@ -185,6 +250,24 @@ export class KitchenService {
           paidTotalCop: order.paid_total_cop,
           paymentStatus: order.payment_status,
         });
+
+        if (newOrderStatus === 'READY') {
+          const effectiveTable = order.table || order.dining_account?.table;
+          const waiterId = order.processed_by || order.dining_account?.opened_by;
+          const waiterName = order.dining_account?.opener?.name || null;
+
+          this.sseStream.emitToBranch(tenantId, order.branch_id, 'kitchen.order_ready', {
+            orderId: order.id,
+            orderCode: order.order_code,
+            tableCode: effectiveTable?.code || null,
+            tableLabel: effectiveTable?.code ? `Mesa ${effectiveTable.code}` : null,
+            areaName: effectiveTable?.area?.name || null,
+            waiterId: waiterId || null,
+            waiterName: waiterName,
+            readyAt: new Date().toISOString(),
+            message: `¡Comanda #${order.order_code} lista en cocina para ${effectiveTable?.code ? `Mesa ${effectiveTable.code}` : 'Despacho'}!`,
+          });
+        }
       }
 
       // 7. Emitir evento KDS especializado hacia la pantalla de cocina

@@ -27,6 +27,8 @@ interface KitchenItem {
   order_id: string;
   product_id: string;
   quantity: number;
+  station_key?: string | null;
+  status?: 'PENDING' | 'PREPARING' | 'READY' | 'CANCELLED';
   kitchen_station?: string | null;
   kitchen_status?: 'PENDING' | 'PREPARING' | 'READY';
   kitchen_started_at?: string | null;
@@ -46,6 +48,19 @@ interface KitchenOrder {
   notes?: string | null;
   customer?: { name: string; phone_e164: string } | null;
   customer_snapshot_json?: any;
+  table_label?: string | null;
+  table_code?: string | null;
+  area_name?: string | null;
+  server_name?: string | null;
+  opener_name?: string | null;
+  waiter_name?: string | null;
+  table?: { id: string; code: string; area?: { name: string } } | null;
+  dining_account?: {
+    id: string;
+    account_code: string;
+    opener?: { id: string; name: string };
+    table?: { code: string; area?: { name: string } };
+  } | null;
   items: KitchenItem[];
 }
 
@@ -127,22 +142,31 @@ export const KitchenKdsPage: React.FC = () => {
           playNewOrderChime();
         }
         queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
-      } else if (message.type === 'kitchen.item_status_updated') {
+      } else if (
+        message.type === 'kitchen.order_updated' ||
+        message.type === 'kitchen.item_status_updated' ||
+        message.type === 'kitchen.order_ready'
+      ) {
         queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
       }
     },
   });
 
-  // Mutación para actualizar estado de ítems de cocina
+  // Mutación para actualizar estado de ítems de cocina alineado con UpdateKitchenItemStatusSchema
   const updateItemStatusMutation = useMutation({
     mutationFn: async ({
       orderId,
-      items,
+      itemIds,
+      toStatus,
     }: {
       orderId: string;
-      items: Array<{ item_id: string; kitchen_status: 'PENDING' | 'PREPARING' | 'READY' }>;
+      itemIds?: string[];
+      toStatus: 'PREPARING' | 'READY';
     }) => {
-      return apiClient.patch(`/kitchen/orders/${orderId}/status`, { items });
+      return apiClient.patch(`/kitchen/orders/${orderId}/status`, {
+        item_ids: itemIds,
+        to_status: toStatus,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
@@ -152,32 +176,61 @@ export const KitchenKdsPage: React.FC = () => {
     },
   });
 
-  // Función para ciclar el estado de un ítem: PENDING -> PREPARING -> READY
+  // Obtener estado efectivo de un ítem (apoya tanto status como kitchen_status)
+  const getItemStatus = (item: KitchenItem): 'PENDING' | 'PREPARING' | 'READY' => {
+    return (item.status as any) || item.kitchen_status || 'PENDING';
+  };
+
+  // Función para ciclar el estado de un ítem individual:
+  // PENDING -> PREPARING -> READY -> PREPARING
   const handleCycleItemStatus = (orderId: string, item: KitchenItem) => {
-    const current = item.kitchen_status || 'PENDING';
-    let next: 'PENDING' | 'PREPARING' | 'READY' = 'PREPARING';
-    if (current === 'PENDING') next = 'PREPARING';
-    else if (current === 'PREPARING') next = 'READY';
-    else if (current === 'READY') next = 'PENDING';
+    const current = getItemStatus(item);
+    let next: 'PREPARING' | 'READY' = 'PREPARING';
+    if (current === 'PENDING') {
+      next = 'PREPARING';
+    } else if (current === 'PREPARING') {
+      next = 'READY';
+    } else if (current === 'READY') {
+      next = 'PREPARING';
+    }
 
     updateItemStatusMutation.mutate({
       orderId,
-      items: [{ item_id: item.id, kitchen_status: next }],
+      itemIds: [item.id],
+      toStatus: next,
+    });
+  };
+
+  // Iniciar preparación de toda la comanda a la vez
+  const handleStartAllPreparing = (order: KitchenOrder) => {
+    updateItemStatusMutation.mutate({
+      orderId: order.id,
+      itemIds: order.items.map((it) => it.id),
+      toStatus: 'PREPARING',
     });
   };
 
   // Función para marcar todos los ítems de una comanda como listos
   const handleMarkAllReady = (order: KitchenOrder) => {
-    const itemsToUpdate = order.items.map((it) => ({
-      item_id: it.id,
-      kitchen_status: 'READY' as const,
-    }));
-
     updateItemStatusMutation.mutate({
       orderId: order.id,
-      items: itemsToUpdate,
+      itemIds: order.items.map((it) => it.id),
+      toStatus: 'READY',
     });
   };
+
+  // Mutación para despachar/servir comanda terminada (SERVED / PICKED_UP / OUT_FOR_DELIVERY)
+  const transitionOrderMutation = useMutation({
+    mutationFn: async ({ orderId, toStatus }: { orderId: string; toStatus: string }) => {
+      return apiClient.patch(`/orders/${orderId}/status`, { to_status: toStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || err?.message || 'Error al despachar orden de cocina.');
+    },
+  });
 
   // Cálculo de tiempo transcurrido y semáforo
   const getTimeElapsed = (createdAt: string) => {
@@ -298,6 +351,20 @@ export const KitchenKdsPage: React.FC = () => {
               const isPickup = order.fulfillment_type === 'PICKUP';
               const isDineIn = order.fulfillment_type === 'DINE_IN';
 
+              const effectiveTableCode =
+                order.table_code || order.table?.code || order.dining_account?.table?.code;
+              const effectiveTableLabel =
+                order.table_label || (effectiveTableCode ? `Mesa ${effectiveTableCode}` : null);
+              const effectiveAreaName =
+                order.area_name ||
+                order.table?.area?.name ||
+                order.dining_account?.table?.area?.name;
+              const effectiveServerName =
+                order.server_name ||
+                order.opener_name ||
+                order.waiter_name ||
+                order.dining_account?.opener?.name;
+
               // Semáforo de tiempos
               let trafficColor = 'border-emerald-500/80 bg-emerald-950/20 text-emerald-400';
               let badgeColor = 'bg-emerald-900/60 text-emerald-300 border-emerald-700';
@@ -309,8 +376,11 @@ export const KitchenKdsPage: React.FC = () => {
                 badgeColor = 'bg-amber-900/60 text-amber-300 border-amber-700';
               }
 
+              const allPreparingOrReady = order.items.every(
+                (it) => getItemStatus(it) === 'PREPARING' || getItemStatus(it) === 'READY',
+              );
               const allReady = order.items.every(
-                (it) => it.kitchen_status === 'READY',
+                (it) => getItemStatus(it) === 'READY',
               );
 
               return (
@@ -321,8 +391,8 @@ export const KitchenKdsPage: React.FC = () => {
                   }`}
                 >
                   {/* Encabezado Comanda KDS */}
-                  <div className="p-4 border-b border-stone-800 bg-[#1e1b19] flex items-center justify-between">
-                    <div>
+                  <div className="p-4 border-b border-stone-800 bg-[#1e1b19] flex items-start justify-between gap-2">
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-2xl font-black text-white">
                           #{order.order_code}
@@ -334,10 +404,31 @@ export const KitchenKdsPage: React.FC = () => {
                       <p className="text-xs text-stone-400 mt-0.5 font-medium">
                         {customerSnapshot.name || order.customer?.name || 'Cliente'}
                       </p>
+
+                      {/* Identificación de Mesa y Salón */}
+                      {effectiveTableCode && (
+                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-xl bg-orange-950/80 border border-orange-500/70 text-orange-200 text-xs font-black flex items-center gap-1.5 shadow-xs">
+                            <UtensilsCrossed className="w-3.5 h-3.5 text-orange-400" />
+                            <span>{effectiveTableLabel}</span>
+                            {effectiveAreaName && (
+                              <span className="text-orange-300/80 font-normal">• {effectiveAreaName}</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Encargado / Mesero de la Mesa */}
+                      {effectiveServerName && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-amber-300/90">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                          <span>Atendido por: <strong className="text-amber-200">{effectiveServerName}</strong></span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Semáforo de Minutos */}
-                    <div className="text-right">
+                    {/* Semáforo de Minutos y Modalidad */}
+                    <div className="text-right shrink-0">
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black border ${badgeColor}`}
                       >
@@ -348,7 +439,7 @@ export const KitchenKdsPage: React.FC = () => {
                         {isDineIn ? (
                           <>
                             <UtensilsCrossed className="w-3 h-3 text-orange-400" />
-                            <span>Mesa</span>
+                            <span className="font-bold text-orange-400">Salón / Mesa</span>
                           </>
                         ) : isPickup ? (
                           <>
@@ -365,7 +456,7 @@ export const KitchenKdsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Notas de la Comanda */}
+                  {/* Notas de la Comanda General */}
                   {order.notes && (
                     <div className="px-4 py-2 bg-amber-950/40 border-b border-amber-900/40 text-amber-300 text-xs flex items-start gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
@@ -376,9 +467,17 @@ export const KitchenKdsPage: React.FC = () => {
                   {/* Lista de Ítems Táctiles */}
                   <div className="p-4 space-y-2.5 flex-1">
                     {order.items.map((item) => {
-                      const itemStatus = item.kitchen_status || 'PENDING';
+                      const itemStatus = getItemStatus(item);
                       const isItemReady = itemStatus === 'READY';
                       const isItemPreparing = itemStatus === 'PREPARING';
+
+                      const productName =
+                        item.product_snapshot_json?.product_name ||
+                        item.product_snapshot_json?.name ||
+                        'Producto';
+                      const variantName =
+                        item.product_snapshot_json?.variant_name ||
+                        item.product_snapshot_json?.variant?.name;
 
                       return (
                         <div
@@ -393,7 +492,7 @@ export const KitchenKdsPage: React.FC = () => {
                           }`}
                         >
                           <div className="flex-1">
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-baseline gap-2 flex-wrap">
                               <span
                                 className={`text-lg font-black ${
                                   isItemReady
@@ -410,23 +509,35 @@ export const KitchenKdsPage: React.FC = () => {
                                   isItemReady ? 'line-through text-stone-500' : 'text-stone-100'
                                 }`}
                               >
-                                {item.product_snapshot_json?.name || 'Producto'}
+                                {productName}
                               </span>
+
+                              {/* Variante del Producto */}
+                              {variantName && (
+                                <span className="px-2 py-0.5 rounded-md bg-stone-800 text-stone-300 text-[10px] font-bold border border-stone-700">
+                                  {variantName}
+                                </span>
+                              )}
                             </div>
 
-                            {/* Modificadores o notas */}
+                            {/* Modificadores */}
                             {item.modifiers_snapshot_json &&
                               item.modifiers_snapshot_json.length > 0 && (
-                                <p className="text-[11px] text-amber-400 font-medium pl-6 mt-0.5">
-                                  +{' '}
-                                  {item.modifiers_snapshot_json
-                                    .map((m: any) => m.option_name)
-                                    .join(', ')}
-                                </p>
+                                <div className="text-[11px] text-amber-400 font-medium pl-6 mt-1 flex flex-wrap gap-1">
+                                  {item.modifiers_snapshot_json.map((m: any, idx: number) => (
+                                    <span
+                                      key={idx}
+                                      className="bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded text-[10px]"
+                                    >
+                                      + {m.option_name || m.name}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
 
+                            {/* Notas de Cocina específicas del plato */}
                             {item.notes && (
-                              <p className="text-[11px] text-stone-400 italic pl-6 mt-0.5">
+                              <p className="text-[11px] text-amber-200 bg-amber-950/30 border border-amber-800/40 rounded px-2 py-0.5 pl-6 mt-1 italic">
                                 Nota: {item.notes}
                               </p>
                             )}
@@ -439,11 +550,12 @@ export const KitchenKdsPage: React.FC = () => {
                                 ✓
                               </span>
                             ) : isItemPreparing ? (
-                              <span className="px-2.5 py-1 rounded-xl bg-sky-600 text-white text-xs font-bold shadow-xs flex items-center gap-1">
+                              <span className="px-2.5 py-1 rounded-xl bg-sky-600 text-white text-xs font-bold shadow-xs flex items-center gap-1 animate-pulse">
+                                <Flame className="w-3 h-3" />
                                 <span>Cocinando</span>
                               </span>
                             ) : (
-                              <span className="px-2.5 py-1 rounded-xl bg-stone-800 text-stone-300 text-xs font-semibold hover:bg-stone-700">
+                              <span className="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-orange-600 text-stone-300 hover:text-white text-xs font-semibold transition-colors">
                                 Iniciar
                               </span>
                             )}
@@ -453,20 +565,61 @@ export const KitchenKdsPage: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Footer Comanda con Botón Marcar Todo Listo e Imprimir */}
+                  {/* Footer Comanda con Botones Iniciar, Marcar Todo Listo e Imprimir */}
                   <div className="p-3 bg-[#1e1b19] border-t border-stone-800 flex items-center gap-2">
-                    <button
-                      onClick={() => handleMarkAllReady(order)}
-                      disabled={allReady}
-                      className={`flex-1 py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md ${
-                        allReady
-                          ? 'bg-stone-800 text-stone-500 cursor-not-allowed'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{allReady ? 'Comanda Lista' : 'Marcar Todo Listo'}</span>
-                    </button>
+                    {!allPreparingOrReady && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartAllPreparing(order)}
+                        disabled={updateItemStatusMutation.isPending}
+                        className="flex-1 py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md bg-orange-600 hover:bg-orange-500 text-white shadow-orange-950/40"
+                      >
+                        <Flame className="w-4 h-4" />
+                        <span>Iniciar</span>
+                      </button>
+                    )}
+
+                    {!allReady ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkAllReady(order)}
+                        disabled={updateItemStatusMutation.isPending}
+                        className="flex-1 py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Marcar Todo Listo</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          transitionOrderMutation.mutate({
+                            orderId: order.id,
+                            toStatus: isDineIn ? 'SERVED' : isPickup ? 'PICKED_UP' : 'OUT_FOR_DELIVERY',
+                          })
+                        }
+                        disabled={transitionOrderMutation.isPending}
+                        className="flex-1 py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-emerald-950/40 animate-pulse cursor-pointer"
+                        title="Despachar comida y archivar del KDS"
+                      >
+                        {isDineIn ? (
+                          <>
+                            <UtensilsCrossed className="w-4 h-4" />
+                            <span>🍽️ Servido en Mesa</span>
+                          </>
+                        ) : isPickup ? (
+                          <>
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>📦 Entregado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="w-4 h-4" />
+                            <span>🛵 Despachar Domicilio</span>
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     <button
                       type="button"

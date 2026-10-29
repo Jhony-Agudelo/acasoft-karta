@@ -713,6 +713,21 @@ export const FullOrderPanelPage: React.FC = () => {
                         </button>
                       )}
 
+                      {order.status === 'READY' && isDineIn && (
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'SERVED',
+                            })
+                          }
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-md shadow-emerald-950/20 flex items-center justify-center gap-1.5"
+                        >
+                          <UtensilsCrossed className="w-4 h-4" />
+                          <span>🍽️ Marcar Servido en Mesa</span>
+                        </button>
+                      )}
+
                       {order.status === 'READY' && isPickup && (
                         <button
                           onClick={() =>
@@ -721,10 +736,40 @@ export const FullOrderPanelPage: React.FC = () => {
                               to_status: 'PICKED_UP',
                             })
                           }
-                          className="w-full py-2 rounded-xl bg-stone-900 hover:bg-black text-white font-bold text-xs transition-all shadow-xs"
+                          className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
                         >
-                          ✅ Entregado al Cliente
+                          <ShoppingBag className="w-4 h-4" />
+                          <span>✅ Entregado al Cliente (Recogida)</span>
                         </button>
+                      )}
+
+                      {order.status === 'READY' && !isPickup && !isDineIn && (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() =>
+                              transitionMutation.mutate({
+                                orderId: order.id,
+                                to_status: 'OUT_FOR_DELIVERY',
+                              })
+                            }
+                            className="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] transition-all shadow-xs flex items-center justify-center gap-1"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>En Despacho</span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              transitionMutation.mutate({
+                                orderId: order.id,
+                                to_status: 'DELIVERED',
+                              })
+                            }
+                            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs flex items-center justify-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Entregado</span>
+                          </button>
+                        </div>
                       )}
 
                       {order.status === 'OUT_FOR_DELIVERY' && (
@@ -735,9 +780,10 @@ export const FullOrderPanelPage: React.FC = () => {
                               to_status: 'DELIVERED',
                             })
                           }
-                          className="w-full py-2 rounded-xl bg-stone-900 hover:bg-black text-white font-bold text-xs transition-all shadow-xs"
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
                         >
-                          ✅ Domicilio Entregado
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>✅ Domicilio Entregado</span>
                         </button>
                       )}
                     </div>

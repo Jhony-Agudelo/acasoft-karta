@@ -145,6 +145,7 @@ export class CreatePublicOrderService {
 
       // Verificación de Salón y PIN para TABLE_QR / DINE_IN
       let tableId: string | null = null;
+      let tableCode: string | null = null;
       let diningAccountId: string | null = null;
 
       if (dto.origin === 'TABLE_QR' || dto.fulfillment_type === 'DINE_IN') {
@@ -171,6 +172,7 @@ export class CreatePublicOrderService {
 
         if (table) {
           tableId = table.id;
+          tableCode = table.code;
           const openAccount = await (tx as any).diningAccount.findFirst({
             where: {
               tenant_id: tenantId,
@@ -660,7 +662,9 @@ export class CreatePublicOrderService {
           order_id: createdOrder.id,
           order_code: createdOrder.order_code,
           table_id: tableId,
+          table_code: tableCode,
           dining_account_id: diningAccountId,
+          message: `Nuevo pedido comensal en Mesa ${tableCode || ''}`,
         });
       }
 

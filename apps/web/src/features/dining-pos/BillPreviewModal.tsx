@@ -53,6 +53,17 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     (user as any)?.role === 'TENANT_ADMIN' ||
     (user as any)?.role === 'BRANCH_MANAGER';
 
+  // Solo roles de Caja y Administración tienen potestad para registrar cobros
+  const canRecordPayment =
+    user?.roleKey === 'CASHIER' ||
+    user?.roleKey === 'BRANCH_MANAGER' ||
+    user?.roleKey === 'TENANT_ADMIN' ||
+    user?.roleKey === 'PLATFORM_ADMIN' ||
+    (user as any)?.role === 'CASHIER' ||
+    (user as any)?.role === 'BRANCH_MANAGER' ||
+    (user as any)?.role === 'TENANT_ADMIN' ||
+    (user as any)?.role === 'PLATFORM_ADMIN';
+
   // Formulario de Pre-cuenta
   const [tipCop, setTipCop] = useState<number>(0);
   const [discountTotalCop, setDiscountTotalCop] = useState<number>(0);
@@ -618,112 +629,131 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                 </div>
               )}
 
-              {/* Formulario de Pago (si hay saldo) */}
+              {/* Formulario de Pago (solo para Cajero y Administradores) */}
               {pendingBalanceCop > 0 && account?.status !== 'CLOSED' && (
-                <form
-                  onSubmit={handleRecordPayment}
-                  className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-xs space-y-3"
-                >
-                  <h5 className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
-                    <Banknote className="h-4 w-4 text-emerald-600" />
-                    <span>Registrar Cobro en Caja</span>
-                  </h5>
+                canRecordPayment ? (
+                  <form
+                    onSubmit={handleRecordPayment}
+                    className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-xs space-y-3"
+                  >
+                    <h5 className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
+                      <Banknote className="h-4 w-4 text-emerald-600" />
+                      <span>Registrar Cobro en Caja</span>
+                    </h5>
 
-                  {/* Método */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['CASH', 'POS_TERMINAL', 'MANUAL_TRANSFER'] as const).map(
-                      (m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setPaymentMethod(m)}
-                          className={`py-1.5 rounded-xl text-[10px] font-bold border transition ${
-                            paymentMethod === m
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-400 ring-1 ring-emerald-400'
-                              : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                          }`}
-                        >
-                          {m === 'CASH'
-                            ? 'Efectivo'
-                            : m === 'POS_TERMINAL'
-                              ? 'Datáfono'
-                              : 'Transferencia'}
-                        </button>
-                      ),
-                    )}
-                  </div>
-
-                  {/* Monto a pagar */}
-                  <div>
-                    <label className="text-[10px] font-bold text-stone-500 block mb-1">
-                      Monto a Cobrar COP:
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={pendingBalanceCop}
-                      value={paymentAmountCop}
-                      onChange={(e) =>
-                        setPaymentAmountCop(
-                          Math.min(
-                            pendingBalanceCop,
-                            Math.max(0, parseInt(e.target.value) || 0),
-                          ),
-                        )
-                      }
-                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  {/* Cambio si es Efectivo */}
-                  {paymentMethod === 'CASH' && (
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold text-stone-500 shrink-0">
-                          Recibido:
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="Monto entregado..."
-                          value={cashReceivedCop}
-                          onChange={(e) =>
-                            setCashReceivedCop(
-                              e.target.value === '' ? '' : parseInt(e.target.value) || 0,
-                            )
-                          }
-                          className="flex-1 px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      {typeof cashReceivedCop === 'number' && cashReceivedCop > 0 && (
-                        <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
-                          <span>Cambio a devolver:</span>
-                          <span className="font-mono font-black text-sm">
-                            {formatMoneyCop(cashChangeCop)}
-                          </span>
-                        </div>
+                    {/* Método */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['CASH', 'POS_TERMINAL', 'MANUAL_TRANSFER'] as const).map(
+                        (m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setPaymentMethod(m)}
+                            className={`py-1.5 rounded-xl text-[10px] font-bold border transition ${
+                              paymentMethod === m
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-400 ring-1 ring-emerald-400'
+                                : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                            }`}
+                          >
+                            {m === 'CASH'
+                              ? 'Efectivo'
+                              : m === 'POS_TERMINAL'
+                                ? 'Datáfono'
+                                : 'Transferencia'}
+                          </button>
+                        ),
                       )}
                     </div>
-                  )}
 
-                  {/* Referencia opcional */}
-                  <input
-                    type="text"
-                    placeholder="Referencia o voucher (opcional)..."
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    className="w-full px-3 py-1.5 text-[11px] rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
+                    {/* Monto a pagar */}
+                    <div>
+                      <label className="text-[10px] font-bold text-stone-500 block mb-1">
+                        Monto a Cobrar COP:
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={pendingBalanceCop}
+                        value={paymentAmountCop}
+                        onChange={(e) =>
+                          setPaymentAmountCop(
+                            Math.min(
+                              pendingBalanceCop,
+                              Math.max(0, parseInt(e.target.value) || 0),
+                            ),
+                          )
+                        }
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmittingPayment || paymentAmountCop <= 0}
-                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
-                  >
-                    {isSubmittingPayment
-                      ? 'Procesando pago...'
-                      : `Cobrar ${formatMoneyCop(paymentAmountCop)}`}
-                  </button>
-                </form>
+                    {/* Cambio si es Efectivo */}
+                    {paymentMethod === 'CASH' && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-stone-500 shrink-0">
+                            Recibido:
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="Monto entregado..."
+                            value={cashReceivedCop}
+                            onChange={(e) =>
+                              setCashReceivedCop(
+                                e.target.value === '' ? '' : parseInt(e.target.value) || 0,
+                              )
+                            }
+                            className="flex-1 px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        {typeof cashReceivedCop === 'number' && cashReceivedCop > 0 && (
+                          <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                            <span>Cambio a devolver:</span>
+                            <span className="font-mono font-black text-sm">
+                              {formatMoneyCop(cashChangeCop)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Referencia opcional */}
+                    <input
+                      type="text"
+                      placeholder="Referencia o voucher (opcional)..."
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      className="w-full px-3 py-1.5 text-[11px] rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingPayment || paymentAmountCop <= 0}
+                      className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                    >
+                      {isSubmittingPayment
+                        ? 'Procesando pago...'
+                        : `Cobrar ${formatMoneyCop(paymentAmountCop)}`}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-stone-800 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
+                      <Receipt className="h-4 w-4 text-amber-600" />
+                      <span>Cuenta Lista para Cobro en Caja</span>
+                    </div>
+                    <p className="text-[11px] text-stone-600 leading-relaxed">
+                      El cobro y registro de pagos corresponde exclusivamente al <strong>Cajero</strong> o <strong>Administrador</strong>.
+                      Imprime la pre-cuenta para entregar al comensal o dirígelo a la caja.
+                    </p>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-amber-200/80 font-bold">
+                      <span className="text-stone-600">Saldo a liquidar en caja:</span>
+                      <span className="font-mono text-stone-900 font-black text-sm">
+                        {formatMoneyCop(pendingBalanceCop)}
+                      </span>
+                    </div>
+                  </div>
+                )
               )}
 
               {/* Opción de Cierre Especial para Gerentes */}

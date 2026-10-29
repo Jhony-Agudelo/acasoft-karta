@@ -4,6 +4,7 @@ import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
 import { useBrandStore } from '../../stores/brand.store';
 import { useSseStream } from '../../hooks/use-sse-stream';
+import { playNewOrderChime } from '../lite-order-panel/order-sound';
 import { formatMoneyCop, TableStatus } from '@restaurante-saas/shared';
 import { Link } from 'react-router-dom';
 import {
@@ -38,6 +39,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ShieldCheck,
+  Lock,
+  Bell,
 } from 'lucide-react';
 
 export const DiningFloorPlanPage: React.FC = () => {
@@ -53,6 +56,7 @@ export const DiningFloorPlanPage: React.FC = () => {
 
   // Filtro de área activa
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [onlyMyTables, setOnlyMyTables] = useState<boolean>(false);
 
   // Estados de modales
   const [tableToOpen, setTableToOpen] = useState<DiningTableItem | null>(null);
@@ -68,6 +72,8 @@ export const DiningFloorPlanPage: React.FC = () => {
     isTableFree: boolean;
   } | null>(null);
 
+  const [kitchenReadyNotification, setKitchenReadyNotification] = useState<string | null>(null);
+
   // Conectar SSE para actualización en tiempo real del plano
   const sseUrl = currentBranchId ? `/api/v1/branches/${currentBranchId}/orders/events` : '';
   useSseStream({
@@ -78,9 +84,16 @@ export const DiningFloorPlanPage: React.FC = () => {
       if (
         event.type.startsWith('dining.') ||
         event.type.startsWith('orders.') ||
-        event.type === 'kitchen.order_created'
+        event.type.startsWith('kitchen.')
       ) {
         queryClient.invalidateQueries({ queryKey: ['dining-table-plan', currentBranchId] });
+      }
+
+      if (event.type === 'kitchen.order_ready') {
+        playNewOrderChime();
+        const payload = (event as any).data || event;
+        const msg = payload.message || `¡Comanda #${payload.orderCode || ''} lista en cocina para ${payload.tableLabel || 'entrega'}!`;
+        setKitchenReadyNotification(msg);
       }
     },
   });
@@ -156,6 +169,27 @@ export const DiningFloorPlanPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Alerta en Vivo: Comanda Lista en Cocina */}
+      {kitchenReadyNotification && (
+        <div className="bg-emerald-950 border-2 border-emerald-500 rounded-2xl p-4 text-emerald-200 flex items-center justify-between shadow-xl shadow-emerald-950/20 animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-emerald-500 text-stone-950 flex items-center justify-center font-black text-xl shadow-md">
+              🔔
+            </span>
+            <div>
+              <h4 className="font-black text-sm text-white">¡Aviso de Cocina — Comanda Lista!</h4>
+              <p className="text-xs font-semibold text-emerald-200 mt-0.5">{kitchenReadyNotification}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setKitchenReadyNotification(null)}
+            className="px-3 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+          >
+            Entendido
+          </button>
+        </div>
+      )}
 
       {/* KPI Counters Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -304,7 +338,7 @@ export const DiningFloorPlanPage: React.FC = () => {
 
       {/* Selector de Áreas Pills */}
       {areas.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-wrap">
           <button
             onClick={() => setSelectedAreaId(null)}
             className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition ${
@@ -328,6 +362,21 @@ export const DiningFloorPlanPage: React.FC = () => {
               {area.name} ({area.tables.length})
             </button>
           ))}
+
+          {/* Toggle Mis Mesas (para Meseros) */}
+          {user?.roleKey === 'WAITER' && (
+            <button
+              onClick={() => setOnlyMyTables(!onlyMyTables)}
+              className={`ml-auto px-4 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 ${
+                onlyMyTables
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400'
+                  : 'bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50'
+              }`}
+            >
+              <span>👤 Mis Mesas Asignadas</span>
+              {onlyMyTables && <span className="bg-emerald-800 px-1.5 py-0.2 rounded-full text-[10px]">Filtrado</span>}
+            </button>
+          )}
         </div>
       )}
 
@@ -373,19 +422,26 @@ export const DiningFloorPlanPage: React.FC = () => {
 
               {/* Grid de Mesas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {area.tables.map((table) => {
+                {(onlyMyTables
+                  ? area.tables.filter((t) => t.account?.opened_by === user?.id)
+                  : area.tables
+                ).map((table) => {
                   const isFree = table.status === 'FREE';
                   const isOccupied = table.status === 'OCCUPIED';
                   const isPendingPayment = table.status === 'PENDING_PAYMENT';
                   const isReserved = table.status === 'RESERVED';
                   const hasPendingQr = (table.pending_qr_orders?.length || 0) > 0;
                   const account = table.account;
+                  const isWaiter = user?.roleKey === 'WAITER';
+                  const isMyTable = account?.opened_by === user?.id;
+                  const isLockedForOtherWaiter = isWaiter && !!account && !isMyTable;
+                  const hasReadyOrders = account?.has_ready_orders;
 
                   return (
                     <div
                       key={table.id}
                       onClick={() => {
-                        if (isOccupied && table.account) {
+                        if (isOccupied && table.account && !isLockedForOtherWaiter) {
                           setTableForOrder(table);
                         }
                       }}
@@ -393,7 +449,9 @@ export const DiningFloorPlanPage: React.FC = () => {
                         isFree
                           ? 'bg-white border-stone-200/90 shadow-xs hover:border-emerald-300 hover:shadow-md'
                           : isOccupied
-                            ? 'bg-gradient-to-b from-white to-amber-50/30 border-amber-300/80 shadow-md ring-1 ring-amber-400/20 cursor-pointer hover:border-amber-400 hover:shadow-lg'
+                            ? hasReadyOrders
+                              ? 'bg-gradient-to-b from-emerald-50/40 to-white border-emerald-400 shadow-lg ring-2 ring-emerald-500/30'
+                              : 'bg-gradient-to-b from-white to-amber-50/30 border-amber-300/80 shadow-md ring-1 ring-amber-400/20 cursor-pointer hover:border-amber-400 hover:shadow-lg'
                             : isPendingPayment
                               ? 'bg-gradient-to-b from-white to-violet-50/40 border-violet-300/80 shadow-md ring-1 ring-violet-400/20'
                               : 'bg-white border-blue-200 shadow-xs'
@@ -408,7 +466,9 @@ export const DiningFloorPlanPage: React.FC = () => {
                                 isFree
                                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                   : isOccupied
-                                    ? 'bg-amber-500 text-white shadow-amber-500/20'
+                                    ? hasReadyOrders
+                                      ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                      : 'bg-amber-500 text-white shadow-amber-500/20'
                                     : isPendingPayment
                                       ? 'bg-violet-600 text-white shadow-violet-500/20'
                                       : 'bg-blue-100 text-blue-800'
@@ -449,15 +509,57 @@ export const DiningFloorPlanPage: React.FC = () => {
                           </span>
                         </div>
 
+                        {/* Encargado / Mesero Asignado */}
+                        {account && (
+                          <div className="mt-2 flex items-center justify-between text-[10px] font-bold">
+                            {isMyTable ? (
+                              <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                                <span>👤 Mi Mesa</span>
+                              </span>
+                            ) : account.opener?.name ? (
+                              <span
+                                className={`px-2 py-0.5 rounded-lg flex items-center gap-1 ${
+                                  isLockedForOtherWaiter
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-stone-100 text-stone-600'
+                                }`}
+                              >
+                                {isLockedForOtherWaiter && <Lock className="h-3 w-3 text-amber-700" />}
+                                <span>Atiende: {account.opener.name}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+
+                        {/* Alerta de Comanda Lista en Cocina */}
+                        {hasReadyOrders && (
+                          <div className="mt-2.5 p-2 rounded-xl bg-emerald-600 text-white font-extrabold text-[11px] flex items-center justify-between shadow-md shadow-emerald-600/30 animate-pulse">
+                            <span className="flex items-center gap-1.5">
+                              <Bell className="h-3.5 w-3.5 text-amber-300 animate-bounce" />
+                              ¡Comanda Lista en Cocina!
+                            </span>
+                            <span className="text-[10px] bg-white text-emerald-950 px-2 py-0.5 rounded-lg font-black">
+                              Por Servir
+                            </span>
+                          </div>
+                        )}
+
                         {/* Badge de Alerta QR Pendiente */}
                         {hasPendingQr && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setTableForPendingQr(table);
+                              if (!isLockedForOtherWaiter) {
+                                setTableForPendingQr(table);
+                              }
                             }}
-                            className="w-full mt-3 p-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-extrabold text-[11px] flex items-center justify-between transition animate-pulse"
+                            disabled={isLockedForOtherWaiter}
+                            className={`w-full mt-3 p-2 rounded-xl border font-extrabold text-[11px] flex items-center justify-between transition ${
+                              isLockedForOtherWaiter
+                                ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
+                                : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-700 animate-pulse'
+                            }`}
                           >
                             <span className="flex items-center gap-1.5">
                               <Flame className="h-3.5 w-3.5 text-rose-600" />
@@ -516,8 +618,43 @@ export const DiningFloorPlanPage: React.FC = () => {
                             <Plus className="h-4 w-4" />
                             <span>Abrir Mesa</span>
                           </button>
+                        ) : isLockedForOtherWaiter ? (
+                          <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-center space-y-1">
+                            <div className="flex items-center justify-center gap-1 text-[11px] font-extrabold text-amber-900">
+                              <Lock className="h-3.5 w-3.5 text-amber-700" />
+                              <span>Asignada a {account?.opener?.name || 'otro mesero'}</span>
+                            </div>
+                            <p className="text-[10px] text-amber-800/80 leading-tight">
+                              Solo el mesero responsable puede agregar pedidos o editarla.
+                            </p>
+                          </div>
                         ) : (
                           <div className="space-y-1.5">
+                            {/* Botón Servir Comanda si está lista en cocina */}
+                            {hasReadyOrders && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const detail: any = await apiClient.get(`/accounts/${account.id}`);
+                                    const readyOrder = detail.orders?.find((o: any) => o.status === 'READY');
+                                    if (readyOrder) {
+                                      await apiClient.patch(`/orders/${readyOrder.id}/status`, { to_status: 'SERVED' });
+                                      refetch();
+                                      queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+                                    }
+                                  } catch (err: any) {
+                                    alert(err?.response?.data?.message || err?.message || 'Error al marcar servido.');
+                                  }
+                                }}
+                                className="w-full py-2 mb-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                              >
+                                <UtensilsCrossed className="h-3.5 w-3.5" />
+                                <span>🍽️ Marcar Servido en Mesa</span>
+                              </button>
+                            )}
+
                             <div className="grid grid-cols-2 gap-1.5">
                               <button
                                 type="button"

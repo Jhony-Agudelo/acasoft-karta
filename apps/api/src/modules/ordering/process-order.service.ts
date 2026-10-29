@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
@@ -20,7 +21,7 @@ export class ProcessOrderService {
     private readonly sseStream: SseStreamService,
   ) {}
 
-  async processOrder(tenantId: string, orderId: string, actorId: string | undefined) {
+  async processOrder(tenantId: string, orderId: string, actorId: string | undefined, actorRole?: string) {
     return this.prisma.withTenant(tenantId, async (tx) => {
       // 1. Obtener la orden existente
       const order = await (tx as any).order.findFirst({
@@ -29,6 +30,9 @@ export class ProcessOrderService {
           branch: true,
           items: true,
           edits: true,
+          dining_account: {
+            include: { opener: true },
+          },
         },
       });
 
@@ -36,6 +40,14 @@ export class ProcessOrderService {
         throw new NotFoundException({
           errorCode: 'ORDER_NOT_FOUND',
           message: 'El pedido no fue encontrado.',
+        });
+      }
+
+      // Regla de control exclusivo: Si la comanda es de salón y quien confirma es MESERO, solo el que abrió la cuenta puede confirmarla
+      if (order.dining_account && actorRole === 'WAITER' && order.dining_account.opened_by !== actorId) {
+        throw new ForbiddenException({
+          errorCode: 'TABLE_LOCKED_BY_ANOTHER_SERVER',
+          message: `Esta mesa está asignada exclusivamente al mesero ${order.dining_account.opener?.name || 'otro mesero'}. Solo dicho mesero o un administrador pueden confirmar pedidos en ella.`,
         });
       }
 

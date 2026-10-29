@@ -15,9 +15,16 @@ export interface TableAccountSummary {
   grand_total_cop: number;
   paid_total_cop: number;
   uncollected_amount_cop: number;
+  opened_by?: string;
+  opener?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   opened_at: string;
   version: number;
   orders_count: number;
+  has_ready_orders?: boolean;
 }
 
 export interface PendingQrOrderItem {

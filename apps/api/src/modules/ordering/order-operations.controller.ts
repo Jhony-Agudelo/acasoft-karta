@@ -111,7 +111,7 @@ export class OrderOperationsController {
     @CurrentUser() user: AuthenticatedUserPayload,
     @Param('orderId') orderId: string,
   ) {
-    return this.processOrderService.processOrder(user.tenantId, orderId, user.id);
+    return this.processOrderService.processOrder(user.tenantId, orderId, user.id, user.roleKey);
   }
 
   /**

@@ -70,7 +70,7 @@ export class DiningController {
     const tenantId = req.user.tenantId;
     const actorId = req.user.id || req.user.sub;
     const dto: AddOrderToAccountDto = AddOrderToAccountSchema.parse(body);
-    return this.diningService.addOrderToAccount(tenantId, accountId, actorId, dto);
+    return this.diningService.addOrderToAccount(tenantId, accountId, actorId, dto, req.user.roleKey);
   }
 
   @Post('accounts/:accountId/transfer-table')
@@ -82,7 +82,7 @@ export class DiningController {
     const tenantId = req.user.tenantId;
     const actorId = req.user.id || req.user.sub;
     const dto: TransferTableDto = TransferTableSchema.parse(body);
-    return this.diningService.transferTable(tenantId, accountId, actorId, dto);
+    return this.diningService.transferTable(tenantId, accountId, actorId, dto, req.user.roleKey);
   }
 
   @Patch('accounts/:accountId/bill-preview')
@@ -94,7 +94,7 @@ export class DiningController {
     const tenantId = req.user.tenantId;
     const actorId = req.user.id || req.user.sub;
     const dto: UpdateBillPreviewDto = UpdateBillPreviewSchema.parse(body);
-    return this.diningService.updateBillPreview(tenantId, accountId, actorId, dto);
+    return this.diningService.updateBillPreview(tenantId, accountId, actorId, dto, req.user.roleKey);
   }
 
   @Get('accounts/:accountId/consumption-distribution')
