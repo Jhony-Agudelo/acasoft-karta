@@ -16,6 +16,11 @@ import {
   AlertCircle,
   X,
   Sparkles,
+  Download,
+  Copy,
+  Check,
+  ExternalLink,
+  KeyRound,
 } from 'lucide-react';
 
 interface AreaItem {
@@ -35,6 +40,7 @@ interface TableAdminItem {
   area_id: string;
   area?: { id: string; name: string };
   qr_code?: { qr_token: string; label: string } | null;
+  qr_links?: Array<{ qr_token: string; is_active: boolean }>;
 }
 
 export const DiningAdminSettings: React.FC = () => {
@@ -57,8 +63,9 @@ export const DiningAdminSettings: React.FC = () => {
   const [tableCapacity, setTableCapacity] = useState<number>(4);
   const [tableAreaId, setTableAreaId] = useState('');
 
-  // Stand de QR seleccionado para imprimir
-  const [standToPrint, setStandToPrint] = useState<TableAdminItem | null>(null);
+  // Stand de Portamesa QR seleccionado para previsualizar, imprimir o descargar
+  const [standToView, setStandToView] = useState<TableAdminItem | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -184,11 +191,100 @@ export const DiningAdminSettings: React.FC = () => {
     setIsTableModalOpen(true);
   };
 
-  const handlePrintTableStand = (table: TableAdminItem) => {
-    setStandToPrint(table);
-    setTimeout(() => {
-      window.print();
-    }, 250);
+  const getTableQrToken = (table: TableAdminItem): string => {
+    const firstLink = table.qr_links?.[0];
+    if (firstLink?.qr_token) {
+      return firstLink.qr_token;
+    }
+    if (table.qr_code?.qr_token) {
+      return table.qr_code.qr_token;
+    }
+    return `table-${table.code.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+  };
+
+  const getTableQrUrl = (table: TableAdminItem): string => {
+    const token = getTableQrToken(table);
+    return `${window.location.origin}/q/${token}`;
+  };
+
+  const handleOpenStandModal = (table: TableAdminItem) => {
+    setStandToView(table);
+  };
+
+  const handleDownloadPng = (table: TableAdminItem) => {
+    const svgEl = document.getElementById(`stand-qr-svg-${table.id}`);
+    if (!svgEl) return;
+
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1600;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Fondo blanco del portamesas
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Marco de corte para imprenta / acrílico
+      ctx.strokeStyle = '#D6D3D1';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+      // Nombre del restaurante
+      ctx.fillStyle = '#EA580C'; // orange-600
+      ctx.font = 'bold 42px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText((settings.display_name || 'Karta Bistro').toUpperCase(), 600, 180);
+
+      // Zona o Ambiente
+      const area = areas.find((a) => a.id === table.area_id);
+      if (area) {
+        ctx.fillStyle = '#78716C'; // stone-500
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(area.name.toUpperCase(), 600, 230);
+      }
+
+      // Número de mesa
+      ctx.fillStyle = '#1C1917'; // stone-900
+      ctx.font = '900 110px sans-serif';
+      ctx.fillText(`MESA ${table.code}`, 600, 370);
+
+      // Subtítulo
+      ctx.fillStyle = '#57534E'; // stone-600
+      ctx.font = '500 34px sans-serif';
+      ctx.fillText('Escanea con tu celular para ver la carta y pedir', 600, 440);
+
+      // Código QR centrado
+      ctx.drawImage(img, 275, 510, 650, 650);
+
+      // Instrucción de PIN
+      ctx.fillStyle = '#9A3412'; // amber-800
+      ctx.font = 'bold 34px sans-serif';
+      ctx.fillText('Tu mesero te dará el PIN de 4 dígitos al sentarte', 600, 1260);
+
+      // Enlace de respaldo
+      ctx.fillStyle = '#A8A29E'; // stone-400
+      ctx.font = '24px monospace';
+      ctx.fillText(getTableQrUrl(table), 600, 1340);
+
+      // Footer
+      ctx.fillStyle = '#D6D3D1';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('Powered by Karta', 600, 1490);
+
+      const pngUrl = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngUrl;
+      downloadLink.download = `Portamesa-${table.code}.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   return (
@@ -357,7 +453,7 @@ export const DiningAdminSettings: React.FC = () => {
 
                     <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between">
                       <button
-                        onClick={() => handlePrintTableStand(table)}
+                        onClick={() => handleOpenStandModal(table)}
                         className="text-[11px] font-bold text-orange-600 hover:underline flex items-center gap-1"
                         title="Ver Portamesa QR"
                       >
@@ -453,8 +549,8 @@ export const DiningAdminSettings: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {tables.map((table) => {
-              const qrToken = table.qr_code?.qr_token || 'demo-qr-token';
-              const qrUrl = `${window.location.origin}/q/${qrToken}`;
+              const qrUrl = getTableQrUrl(table);
+              const qrToken = getTableQrToken(table);
 
               return (
                 <div
@@ -476,6 +572,7 @@ export const DiningAdminSettings: React.FC = () => {
                   {/* QR SVG */}
                   <div className="p-4 bg-white rounded-2xl border border-stone-200 inline-block shadow-inner">
                     <QRCodeSVG
+                      id={`tab-stand-qr-${table.id}`}
                       value={qrUrl}
                       size={140}
                       level="H"
@@ -488,11 +585,11 @@ export const DiningAdminSettings: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => handlePrintTableStand(table)}
-                    className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-2"
+                    onClick={() => handleOpenStandModal(table)}
+                    className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md shadow-orange-600/20 transition flex items-center justify-center gap-2"
                   >
-                    <Printer className="h-4 w-4" />
-                    <span>Imprimir Portamesa</span>
+                    <QrCode className="h-4 w-4" />
+                    <span>Ver & Imprimir Portamesa</span>
                   </button>
                 </div>
               );
@@ -665,6 +762,170 @@ export const DiningAdminSettings: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: PREVISUALIZAR E IMPRIMIR PORTAMESA QR */}
+      {standToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/70 backdrop-blur-xs p-4 overflow-y-auto">
+          <style>{`
+            @media print {
+              /* Ocultar toda la interfaz de la aplicación */
+              body * {
+                visibility: hidden !important;
+              }
+              /* Mostrar únicamente el portamesas físico centrado */
+              #printable-table-stand, #printable-table-stand * {
+                visibility: visible !important;
+              }
+              #printable-table-stand {
+                position: fixed !important;
+                left: 50% !important;
+                top: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 105mm !important;
+                max-width: 105mm !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: 2px dashed #78716c !important;
+                border-radius: 16px !important;
+                padding: 12mm 8mm !important;
+                background: white !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                text-align: center !important;
+                page-break-inside: avoid !important;
+              }
+            }
+          `}</style>
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 overflow-hidden animate-slide-up">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/80">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-orange-600" />
+                <h3 className="font-extrabold text-stone-900 text-base">
+                  Portamesa QR — Mesa {standToView.code}
+                </h3>
+              </div>
+              <button
+                onClick={() => setStandToView(null)}
+                aria-label="Cerrar modal"
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Previsualización del Portamesa */}
+            <div className="p-6 space-y-5">
+              {/* Tarjeta Física Imprimible (Acrílico 10x15) */}
+              <div
+                id="printable-table-stand"
+                className="p-6 rounded-3xl bg-gradient-to-b from-stone-50 via-white to-stone-50 border-2 border-stone-200 shadow-sm text-center flex flex-col items-center space-y-3.5 max-w-[280px] mx-auto"
+              >
+                {/* Nombre de la Marca */}
+                <div className="space-y-0.5">
+                  <span className="text-[12px] font-black uppercase tracking-widest text-orange-600 block">
+                    {settings.display_name || 'Karta Bistro'}
+                  </span>
+                  <span className="text-[10px] text-stone-500 font-bold block">
+                    {areas.find((a) => a.id === standToView.area_id)?.name || 'Salón Principal'}
+                  </span>
+                </div>
+
+                {/* Mesa Número */}
+                <div className="py-0.5">
+                  <span className="text-3xl font-black text-stone-900 tracking-tight font-mono block">
+                    Mesa {standToView.code}
+                  </span>
+                  <span className="text-[10px] font-bold text-stone-500 mt-0.5 block">
+                    Escanea para ver la carta y pedir
+                  </span>
+                </div>
+
+                {/* Código QR Generado */}
+                <div className="p-3 bg-white rounded-2xl border border-stone-200 shadow-inner">
+                  <QRCodeSVG
+                    id={`stand-qr-svg-${standToView.id}`}
+                    value={getTableQrUrl(standToView)}
+                    size={170}
+                    level="H"
+                    includeMargin={true}
+                    fgColor="#1c1917"
+                  />
+                </div>
+
+                {/* PIN Info & Respaldo */}
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[10px] font-bold">
+                    <KeyRound className="h-3 w-3 text-amber-600" />
+                    <span>Tu mesero te dará el PIN al sentarte</span>
+                  </div>
+                  <p className="text-[9px] font-mono text-stone-400 truncate max-w-[200px]">
+                    /q/{getTableQrToken(standToView).slice(0, 16)}...
+                  </p>
+                </div>
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="py-3 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 transition"
+                  >
+                    <Printer className="h-4 w-4" />
+                    <span>Imprimir Portamesa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPng(standToView)}
+                    className="py-3 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Descargar PNG</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(getTableQrUrl(standToView));
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2500);
+                    }}
+                    className="py-2.5 px-3 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">¡Enlace Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-stone-500" />
+                        <span>Copiar Enlace</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={getTableQrUrl(standToView)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 px-3 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-stone-500" />
+                    <span>Probar Escaneo</span>
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

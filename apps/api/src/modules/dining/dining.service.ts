@@ -174,7 +174,7 @@ export class DiningService {
   }
 
   async listTablesAdmin(tenantId: string, branchId: string) {
-    return this.prisma.table.findMany({
+    const tables = await this.prisma.table.findMany({
       where: { tenant_id: tenantId, branch_id: branchId },
       include: {
         area: { select: { id: true, name: true, sort_order: true } },
@@ -186,6 +186,28 @@ export class DiningService {
       },
       orderBy: [{ area: { sort_order: 'asc' } }, { code: 'asc' }],
     });
+
+    // Asegurar que cada mesa física tenga un código QR opaco activo generado
+    for (const table of tables) {
+      if (!table.qr_links || table.qr_links.length === 0) {
+        const qrToken = randomBytes(32).toString('hex');
+        const link = await this.prisma.qrCodeLink.create({
+          data: {
+            tenant_id: tenantId,
+            branch_id: branchId,
+            target_type: 'DINING_TABLE',
+            table_id: table.id,
+            qr_token: qrToken,
+            label: `Mesa ${table.code}`,
+            is_active: true,
+          },
+          select: { qr_token: true, is_active: true },
+        });
+        table.qr_links = [link];
+      }
+    }
+
+    return tables;
   }
 
   async deleteTable(tenantId: string, tableId: string) {
