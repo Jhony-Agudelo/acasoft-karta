@@ -8,7 +8,15 @@ export interface SseMessageEvent {
   retry?: number;
 }
 
-export type BranchOrderEventType = 'order.created' | 'order.adjusted' | 'order.status_changed';
+export type BranchOrderEventType =
+  | 'order.created'
+  | 'order.adjusted'
+  | 'order.status_changed'
+  | 'order.payment_recorded'
+  | 'order.payment_voided'
+  | 'order.uncollected_resolved'
+  | 'order.resolution_reverted'
+  | 'kitchen.order_updated';
 
 @Injectable()
 export class SseStreamService implements OnModuleDestroy {

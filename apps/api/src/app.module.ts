@@ -14,6 +14,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { OrderingModule } from './modules/ordering/ordering.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -40,6 +41,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     DeliveryModule,
     OrderingModule,
     NotificationsModule,
+    PaymentsModule,
   ],
   providers: [
     {

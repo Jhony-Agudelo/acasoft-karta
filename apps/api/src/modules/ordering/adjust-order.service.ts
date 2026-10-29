@@ -18,6 +18,7 @@ import {
   OrderTaxSummarySnapshot,
   DIAN_FISCAL_DISCLAIMER_TEXT,
   maskCustomerSnapshot,
+  recalculatePaymentState,
 } from '@restaurante-saas/shared';
 
 @Injectable()
@@ -295,7 +296,24 @@ export class AdjustOrderService {
         data: newItemsToInsert,
       });
 
-      // 10. Actualizar totales en la tabla orders
+      // 10. Recalcular estado financiero si la orden ya tiene cobros registrados
+      let adjustedPaymentStatus = order.payment_status;
+      let adjustedUncollectedCop = order.uncollected_amount_cop;
+      if (order.payment_policy === 'OFFLINE_ONLY' && order.paid_total_cop > 0) {
+        const approvedPayments = await (tx as any).payment.findMany({
+          where: { order_id: orderId, tenant_id: tenantId, status: 'APPROVED' },
+        });
+        const recalc = recalculatePaymentState({
+          paymentPolicy: 'OFFLINE_ONLY',
+          grandTotalCop: newGrandTotalCop,
+          approvedPaymentsAmountsCop: approvedPayments.map((p: any) => p.amount_cop),
+          activeResolutionType: order.resolution_type as any,
+        });
+        adjustedPaymentStatus = recalc.paymentStatus;
+        adjustedUncollectedCop = recalc.uncollectedAmountCop;
+      }
+
+      // 11. Actualizar totales y estado financiero en la tabla orders
       const updatedOrder = await (tx as any).order.update({
         where: { id: orderId },
         data: {
@@ -303,6 +321,8 @@ export class AdjustOrderService {
           delivery_fee_cop: effectiveDeliveryFeeCop,
           tax_total_cop: newTaxTotalCop,
           grand_total_cop: newGrandTotalCop,
+          payment_status: adjustedPaymentStatus,
+          uncollected_amount_cop: adjustedUncollectedCop,
           tax_summary_snapshot_json: taxSummarySnapshot,
         },
         include: {

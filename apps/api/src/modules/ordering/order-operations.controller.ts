@@ -51,6 +51,9 @@ export class OrderOperationsController {
         edits: {
           orderBy: { occurred_at: 'desc' },
         },
+        payments: {
+          orderBy: { created_at: 'desc' },
+        },
       },
     });
 
@@ -65,9 +68,16 @@ export class OrderOperationsController {
       order_id: order.id,
       order_code: order.order_code,
       current_status: order.status,
+      payment_status: order.payment_status,
+      paid_total_cop: order.paid_total_cop,
+      uncollected_amount_cop: order.uncollected_amount_cop,
+      resolution_type: order.resolution_type,
+      resolution_reason: order.resolution_reason,
+      resolved_at: order.resolved_at,
       is_locked: order.is_locked,
       status_events: order.status_events,
       edits: order.edits,
+      payments: order.payments,
     };
   }
 
