@@ -253,5 +253,28 @@ Se agregaron pruebas unitarias en `apps/web/test/TC-POST06-ROLES-BRANCHES.spec.t
 
 Total de pruebas del monorepo: **204 pruebas unitarias e integrales en verde (100 % de éxito)**.
 
+---
+
+## 7. Manuales Operativos y Guías de Flujo por Rol
+
+Para facilitar la adopción, inducción de personal y entendimiento del producto, se han creado los siguientes documentos dedicados con diagramas de secuencia Mermaid, pasos operativos e imágenes de referencia:
+
+1. [**Manual Operativo: Salón, Mesas y Toma de Comandas (Rol de Mesero)**](./MANUAL_OPERATIVO_MESERO_SALON_Y_COMANDAS.md):
+   - Aislamiento de sucursal e interfaz protegida para el mesero (sin acceso a cartas administrativas).
+   - Ciclo de vida de mesas (`FREE` $\rightarrow$ `OCCUPIED` $\rightarrow$ `PENDING_PAYMENT` $\rightarrow$ `CLOSED`).
+   - Apertura de mesa física y generación del PIN dinámico de 4 dígitos.
+   - Toma directa de comandas en mesa con el modal táctil (`+ Comanda` / `WaiterOrderModal`).
+   - Acompañamiento en el autopedido de comensales y entrega del PIN.
+   - Consulta de pre-cuenta y distribución informativa del consumo por persona (`dining.consumption_split`).
+
+2. [**Guía del Comensal: Autopedido QR en Mesa Física vs Menú Digital para Domicilios**](./MANUAL_CLIENTE_AUTOPEDIDO_QR_Y_EXPERIENCIA_MESA.md):
+   - Escaneo y resolución transparente del portamesas acrílico (`/q/:qrToken`).
+   - Detección y bloqueo inquebrantable de sede y mesa (ocultamiento de *"Otras Sedes"*).
+   - Aislamiento total de carrito (inicio limpio e inmune a pedidos anteriores o a domicilio).
+   - Personalización del plato, selección de variantes y notas para cocina.
+   - Checkout de mesa con PIN de 4 dígitos y sin campos innecesarios (sin fletes ni direcciones).
+   - Comparativa detallada con el flujo de Domicilio / Para Llevar desde el hogar.
+
+
 
 
