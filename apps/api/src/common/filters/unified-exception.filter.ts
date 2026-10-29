@@ -23,6 +23,7 @@ export class UnifiedExceptionFilter implements ExceptionFilter {
     let errorCode = 'INTERNAL_SERVER_ERROR';
     let message = 'Ha ocurrido un error interno en el servidor.';
     let details: any = undefined;
+    let extraFields: Record<string, any> = {};
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -35,6 +36,8 @@ export class UnifiedExceptionFilter implements ExceptionFilter {
         errorCode = resObj.errorCode || resObj.error || `HTTP_${statusCode}`;
         message = resObj.message || exception.message;
         details = resObj.details || (resObj.moduleKey ? { moduleKey: resObj.moduleKey } : undefined);
+        const { statusCode: _s, error: _e, message: _m, details: _d, ...rest } = resObj;
+        extraFields = rest;
       }
     } else if (exception instanceof ZodError) {
       statusCode = HttpStatus.BAD_REQUEST;
@@ -82,6 +85,7 @@ export class UnifiedExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       ...(details ? { details } : {}),
+      ...extraFields,
     };
 
     response.status(statusCode).json(payload);

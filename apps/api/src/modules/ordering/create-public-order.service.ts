@@ -3,12 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { OrderCodeGeneratorService } from './order-code-generator.service';
+import { SseStreamService } from '../notifications/sse-stream.service';
 import {
   calculateLinePricing,
   formatMoneyCop,
@@ -32,6 +34,7 @@ export class CreatePublicOrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderCodeGenerator: OrderCodeGeneratorService,
+    private readonly sseStream: SseStreamService,
   ) {
     this.fraudPepperSecret =
       process.env.FRAUD_PEPPER_SECRET || 'karta-default-fraud-pepper-secret-2026';
@@ -139,6 +142,64 @@ export class CreatePublicOrderService {
       const paymentPolicy = channelPolicy?.payment_policy || 'NONE';
       const requirePaymentBeforePrep =
         paymentPolicy === 'OFFLINE_ONLY' ? channelPolicy?.require_payment_before_preparation ?? false : false;
+
+      // Verificación de Salón y PIN para TABLE_QR / DINE_IN
+      let tableId: string | null = null;
+      let diningAccountId: string | null = null;
+
+      if (dto.origin === 'TABLE_QR' || dto.fulfillment_type === 'DINE_IN') {
+        let table = null;
+        if (dto.qr_token) {
+          const qrLink = await (tx as any).qrCodeLink.findFirst({
+            where: {
+              tenant_id: tenantId,
+              branch_id: dto.branch_id,
+              qr_token: dto.qr_token,
+              target_type: 'DINING_TABLE',
+              is_active: true,
+            },
+          });
+          if (qrLink && qrLink.table_id) {
+            table = await (tx as any).table.findUnique({ where: { id: qrLink.table_id } });
+          }
+        }
+        if (!table && dto.table_id) {
+          table = await (tx as any).table.findFirst({
+            where: { id: dto.table_id, tenant_id: tenantId, branch_id: dto.branch_id },
+          });
+        }
+
+        if (table) {
+          tableId = table.id;
+          const openAccount = await (tx as any).diningAccount.findFirst({
+            where: {
+              tenant_id: tenantId,
+              branch_id: dto.branch_id,
+              table_id: table.id,
+              status: 'OPEN',
+            },
+          });
+
+          if (!openAccount) {
+            throw new ConflictException({
+              errorCode: 'TABLE_ACCOUNT_NOT_OPEN',
+              message:
+                'La mesa no tiene una cuenta abierta actualmente. Por favor solicite a su mesero la apertura de la mesa.',
+            });
+          }
+
+          if (channelPolicy?.require_table_pin) {
+            if (!dto.table_pin || dto.table_pin !== openAccount.table_session_pin) {
+              throw new ForbiddenException({
+                errorCode: 'INVALID_TABLE_PIN',
+                message: 'El PIN de mesa ingresado es incorrecto.',
+              });
+            }
+          }
+
+          diningAccountId = openAccount.id;
+        }
+      }
 
       // 5. Antifraude: Normalización telefónica, firma HMAC y límite de pedidos abiertos
       let phoneE164: string;
@@ -526,8 +587,16 @@ export class CreatePublicOrderService {
       };
 
       // 11. Estado inicial e invariantes financieras
-      const initialStatus = dto.origin === 'WHATSAPP' ? 'REQUESTED' : 'RECEIVED';
-      const initialPaymentStatus = paymentPolicy === 'NONE' ? 'NOT_TRACKED' : 'UNPAID';
+      const initialStatus =
+        dto.origin === 'WHATSAPP' || dto.origin === 'TABLE_QR'
+          ? 'REQUESTED'
+          : 'RECEIVED';
+      const initialPaymentPolicy =
+        dto.fulfillment_type === 'DINE_IN' || dto.origin === 'TABLE_QR'
+          ? 'OFFLINE_ONLY'
+          : paymentPolicy;
+      const initialPaymentStatus =
+        initialPaymentPolicy === 'NONE' ? 'NOT_TRACKED' : 'UNPAID';
 
       // 12. Generación de Order Code (#A101) y Public Token
       const orderCode = await this.orderCodeGenerator.generateDailyOrderCode(
@@ -547,9 +616,14 @@ export class CreatePublicOrderService {
           origin: dto.origin,
           fulfillment_type: dto.fulfillment_type,
           status: initialStatus,
-          payment_policy: paymentPolicy,
-          require_payment_before_preparation: requirePaymentBeforePrep,
+          payment_policy: initialPaymentPolicy,
+          require_payment_before_preparation:
+            dto.fulfillment_type === 'DINE_IN' || dto.origin === 'TABLE_QR'
+              ? false
+              : requirePaymentBeforePrep,
           payment_status: initialPaymentStatus,
+          table_id: tableId,
+          dining_account_id: diningAccountId,
           customer_id: customer.id,
           customer_snapshot_json: customerSnapshot as any,
           public_token: publicToken,
@@ -580,6 +654,15 @@ export class CreatePublicOrderService {
           items: true,
         },
       });
+
+      if (dto.origin === 'TABLE_QR') {
+        this.sseStream.emitToBranch(tenantId, dto.branch_id, 'dining.qr_order_requested', {
+          order_id: createdOrder.id,
+          order_code: createdOrder.order_code,
+          table_id: tableId,
+          dining_account_id: diningAccountId,
+        });
+      }
 
       // 14. Generación de Enlace WhatsApp (wa.me)
       const whatsappRedirectUrl = buildCustomerToBranchWhatsappUrl({

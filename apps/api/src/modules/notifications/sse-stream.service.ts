@@ -16,7 +16,14 @@ export type BranchOrderEventType =
   | 'order.payment_voided'
   | 'order.uncollected_resolved'
   | 'order.resolution_reverted'
-  | 'kitchen.order_updated';
+  | 'kitchen.order_updated'
+  | 'dining.table_updated'
+  | 'dining.account_opened'
+  | 'dining.order_added'
+  | 'dining.table_transferred'
+  | 'dining.account_closed'
+  | 'dining.account_reopened'
+  | 'dining.qr_order_requested';
 
 @Injectable()
 export class SseStreamService implements OnModuleDestroy {

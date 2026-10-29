@@ -79,6 +79,24 @@ export class OpenOperationsChecker {
           message: `No se puede desactivar el registro de pagos mientras existan pedidos activos con cobro pendiente (ej. ${unpaidOrder.order_code}).`,
         });
       }
+
+      const unpaidAccount = await (this.prisma as any).diningAccount.findFirst({
+        where: {
+          tenant_id: tenantId,
+          payment_status: { in: ['UNPAID', 'PARTIALLY_PAID'] },
+          status: { in: ['OPEN', 'REOPENED_ACCOUNTING'] },
+          ...(branchId ? { branch_id: branchId } : {}),
+        },
+        select: { id: true, account_code: true },
+      });
+
+      if (unpaidAccount) {
+        throw new ConflictException({
+          errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
+          moduleKey: 'payments.manual',
+          message: `No se puede desactivar el registro de pagos mientras existan cuentas de salón con cobro pendiente (ej. ${unpaidAccount.account_code}).`,
+        });
+      }
     }
   }
 }

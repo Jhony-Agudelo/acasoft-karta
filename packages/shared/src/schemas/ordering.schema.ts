@@ -101,6 +101,9 @@ export const CreatePublicOrderSchema = z
     fulfillment_type: z.enum(['PICKUP', 'DELIVERY', 'DINE_IN']),
     customer: CreatePublicOrderCustomerSchema,
     delivery: CreatePublicOrderDeliverySchema.nullable().optional(),
+    table_id: z.string().uuid().optional(),
+    qr_token: z.string().optional(),
+    table_pin: z.string().max(8).optional(),
     notes: z.string().trim().max(500).nullable().optional(),
     items: z.array(CreatePublicOrderItemSchema).min(1, 'El pedido debe contener al menos 1 producto'),
   })

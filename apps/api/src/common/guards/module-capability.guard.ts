@@ -29,7 +29,17 @@ export class ModuleCapabilityGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     const tenantId = user?.tenantId || request.tenantContext?.tenantId;
-    const branchId = request.params?.branchId || request.body?.branch_id;
+    let branchId = request.params?.branchId || request.body?.branch_id;
+
+    if (!branchId && request.params?.accountId) {
+      const acc = await this.prisma.diningAccount.findUnique({
+        where: { id: request.params.accountId },
+        select: { branch_id: true },
+      });
+      if (acc) {
+        branchId = acc.branch_id;
+      }
+    }
 
     if (!tenantId) {
       // Si la ruta requiere un módulo pero no hay contexto de tenant, se rechaza

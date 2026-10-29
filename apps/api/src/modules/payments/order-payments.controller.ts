@@ -21,6 +21,7 @@ import {
   ResolveUncollectedOrderDto,
   RevertResolutionSchema,
   RevertResolutionDto,
+  CreateAccountPaymentSchema,
 } from '@restaurante-saas/shared';
 import * as crypto from 'crypto';
 
@@ -66,6 +67,50 @@ export class OrderPaymentsController {
     return this.manualPaymentsService.recordManualPayment(
       user.tenantId,
       orderId,
+      user.id,
+      idempotencyKey,
+      parseResult.data,
+    );
+  }
+
+  /**
+   * Registra un cobro manual sobre una cuenta de salón (DiningAccount)
+   * POST /api/v1/accounts/:accountId/payments/manual
+   */
+  @Post('accounts/:accountId/payments/manual')
+  async recordAccountPayment(
+    @CurrentUser() user: AuthenticatedUserPayload,
+    @Param('accountId') accountId: string,
+    @Headers('idempotency-key') idempotencyKeyHeader: string | undefined,
+    @Headers('x-idempotency-key') xIdempotencyKeyHeader: string | undefined,
+    @Body() body: unknown,
+  ) {
+    const allowedRoles = ['CASHIER', 'BRANCH_MANAGER', 'TENANT_ADMIN', 'PLATFORM_ADMIN'];
+    if (!allowedRoles.includes(user.roleKey)) {
+      throw new ForbiddenException({
+        errorCode: 'FORBIDDEN',
+        message: 'No posee permisos para registrar cobros manuales.',
+      });
+    }
+
+    const parseResult = CreateAccountPaymentSchema.safeParse(body);
+    if (!parseResult.success) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Error de validación en los datos del pago.',
+        errors: parseResult.error.flatten().fieldErrors,
+      });
+    }
+
+    const idempotencyKey =
+      idempotencyKeyHeader ||
+      xIdempotencyKeyHeader ||
+      parseResult.data.idempotency_key ||
+      `pay-${crypto.randomUUID()}`;
+
+    return this.manualPaymentsService.recordAccountPayment(
+      user.tenantId,
+      accountId,
       user.id,
       idempotencyKey,
       parseResult.data,

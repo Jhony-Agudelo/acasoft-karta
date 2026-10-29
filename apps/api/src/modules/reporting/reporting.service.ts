@@ -272,6 +272,86 @@ export class ReportingService {
       this.accumulateOrderDurations(order.status_events, prepDurationsMinutes, deliveryDurationsMinutes);
     }
 
+    // Procesar cuentas de salón (DiningAccount) abiertas en el periodo
+    const accountWhere: any = {
+      tenant_id: tenantId,
+      status: { not: 'CANCELLED' },
+      opened_at: {
+        gte: startUtc,
+        lte: endUtc,
+      },
+    };
+
+    if (query.branch_id) {
+      accountWhere.branch_id = query.branch_id;
+    } else if (userBranchScope && userBranchScope.length > 0) {
+      accountWhere.branch_id = { in: userBranchScope };
+    }
+
+    const accounts = await (this.prisma as any).diningAccount.findMany({
+      where: accountWhere,
+      include: {
+        payments: {
+          where: { status: 'APPROVED' },
+        },
+        closer: { select: { id: true, name: true } },
+      },
+    });
+
+    for (const account of accounts) {
+      billingSummary.confirmed_orders_count++;
+
+      const netProducts = account.subtotal_products_cop - account.discount_total_cop;
+      billingSummary.net_products_sales_cop += netProducts;
+      billingSummary.discount_total_cop += account.discount_total_cop;
+      billingSummary.tips_total_cop += account.tip_cop;
+      billingSummary.gross_billed_total_cop += account.grand_total_cop;
+
+      let paidTotalForAccount = 0;
+      for (const p of account.payments) {
+        paidTotalForAccount += p.amount_cop;
+        if (p.method === 'CASH') collectionsByMethod.CASH += p.amount_cop;
+        else if (p.method === 'POS_TERMINAL') collectionsByMethod.POS_TERMINAL += p.amount_cop;
+        else if (p.method === 'MANUAL_TRANSFER') collectionsByMethod.MANUAL_TRANSFER += p.amount_cop;
+      }
+
+      const allocated = allocateCollectedBreakdown({
+        paidTotalCop: paidTotalForAccount,
+        netProductsCop: netProducts,
+        deliveryFeeCop: 0,
+        tipCop: account.tip_cop,
+      });
+
+      reconciliationSummary.collected_products_cop += allocated.collected_products_cop;
+      reconciliationSummary.collected_tips_cop += allocated.collected_tips_cop;
+      reconciliationSummary.collected_total_cop += paidTotalForAccount;
+
+      const receivableBreakdown = computeReceivableAndUncollected({
+        grandTotalCop: account.grand_total_cop,
+        paidTotalCop: paidTotalForAccount,
+        paymentStatus: account.payment_status as any,
+        uncollectedAmountCop: account.uncollected_amount_cop,
+      });
+
+      reconciliationSummary.pending_receivable_cop += receivableBreakdown.pendingReceivableCop;
+      reconciliationSummary.courtesy_total_cop += receivableBreakdown.courtesyCop;
+      reconciliationSummary.written_off_total_cop += receivableBreakdown.writtenOffCop;
+
+      if (account.resolution_type && account.uncollected_amount_cop > 0) {
+        uncollectedResolutionsDetail.push({
+          order_id: account.id,
+          order_code: account.account_code,
+          occurred_at: account.closed_at
+            ? account.closed_at.toISOString()
+            : account.opened_at.toISOString(),
+          resolution_type: account.resolution_type as 'COURTESY' | 'WRITTEN_OFF',
+          uncollected_amount_cop: account.uncollected_amount_cop,
+          resolution_reason: account.close_reason || '',
+          resolved_by_name: account.closer?.name || null,
+        });
+      }
+    }
+
     // Verificar ecuación maestra
     const equationResult = verifyMasterReconciliationEquation({
       grossBilledTotalCop: billingSummary.gross_billed_total_cop,
@@ -462,6 +542,81 @@ export class ReportingService {
         escapeCsvCell(order.uncollected_amount_cop),
         escapeCsvCell(order.resolution_type || ''),
         escapeCsvCell(order.resolution_reason || ''),
+      ];
+
+      rows.push(rowValues.join(','));
+    }
+
+    // Agregar cuentas de salón al CSV
+    const csvAccountWhere: any = {
+      tenant_id: tenantId,
+      status: { not: 'CANCELLED' },
+      opened_at: {
+        gte: startUtc,
+        lte: endUtc,
+      },
+    };
+    if (query.branch_id) {
+      csvAccountWhere.branch_id = query.branch_id;
+    } else if (userBranchScope && userBranchScope.length > 0) {
+      csvAccountWhere.branch_id = { in: userBranchScope };
+    }
+
+    const csvAccounts = await (this.prisma as any).diningAccount.findMany({
+      where: csvAccountWhere,
+      include: {
+        branch: { select: { name: true } },
+        payments: { where: { status: 'APPROVED' } },
+      },
+      orderBy: { opened_at: 'desc' },
+    });
+
+    for (const account of csvAccounts) {
+      const netProducts = account.subtotal_products_cop - account.discount_total_cop;
+      let cashCop = 0;
+      let posCop = 0;
+      let transferCop = 0;
+
+      for (const p of account.payments) {
+        if (p.method === 'CASH') cashCop += p.amount_cop;
+        else if (p.method === 'POS_TERMINAL') posCop += p.amount_cop;
+        else if (p.method === 'MANUAL_TRANSFER') transferCop += p.amount_cop;
+      }
+      const totalPaid = cashCop + posCop + transferCop;
+
+      const receivableBreakdown = computeReceivableAndUncollected({
+        grandTotalCop: account.grand_total_cop,
+        paidTotalCop: totalPaid,
+        paymentStatus: account.payment_status as any,
+        uncollectedAmountCop: account.uncollected_amount_cop,
+      });
+
+      const rowValues = [
+        escapeCsvCell(account.account_code),
+        escapeCsvCell('CUENTA_SALON'),
+        escapeCsvCell(formatBogotaDateTime(account.opened_at)),
+        escapeCsvCell(account.branch?.name || ''),
+        escapeCsvCell('DINE_IN'),
+        escapeCsvCell('DINE_IN'),
+        escapeCsvCell(account.status),
+        escapeCsvCell('OFFLINE_ONLY'),
+        escapeCsvCell(account.payment_status),
+        escapeCsvCell(netProducts),
+        escapeCsvCell(0),
+        escapeCsvCell(0),
+        escapeCsvCell(0),
+        escapeCsvCell(account.discount_total_cop),
+        escapeCsvCell(0),
+        escapeCsvCell(account.tip_cop),
+        escapeCsvCell(account.grand_total_cop),
+        escapeCsvCell(cashCop),
+        escapeCsvCell(posCop),
+        escapeCsvCell(transferCop),
+        escapeCsvCell(totalPaid),
+        escapeCsvCell(receivableBreakdown.pendingReceivableCop),
+        escapeCsvCell(account.uncollected_amount_cop),
+        escapeCsvCell(account.resolution_type || ''),
+        escapeCsvCell(account.close_reason || ''),
       ];
 
       rows.push(rowValues.join(','));

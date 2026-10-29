@@ -91,7 +91,60 @@ export class ProcessOrderService {
         },
       });
 
-      // 6. Construir mensaje y enlace de WhatsApp hacia el cliente (sin PII sensible)
+      // 6. Si pertenece a una cuenta de salón (DiningAccount), sumar sus importes e incrementar version
+      if (order.dining_account_id) {
+        const activeOrders = await (tx as any).order.findMany({
+          where: {
+            dining_account_id: order.dining_account_id,
+            status: { notIn: ['REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'] },
+          },
+          select: {
+            subtotal_products_cop: true,
+            tax_total_cop: true,
+          },
+        });
+
+        const newSubtotal = activeOrders.reduce(
+          (acc: number, o: any) => acc + o.subtotal_products_cop,
+          0,
+        );
+        const newTaxTotal = activeOrders.reduce(
+          (acc: number, o: any) => acc + o.tax_total_cop,
+          0,
+        );
+
+        const account = await (tx as any).diningAccount.findUnique({
+          where: { id: order.dining_account_id },
+        });
+
+        if (account) {
+          const newGrandTotal = Math.max(
+            0,
+            newSubtotal - account.discount_total_cop + account.tip_cop,
+          );
+          const newVersion = account.version + 1;
+
+          await (tx as any).diningAccount.update({
+            where: { id: account.id },
+            data: {
+              subtotal_products_cop: newSubtotal,
+              tax_total_cop: newTaxTotal,
+              grand_total_cop: newGrandTotal,
+              version: newVersion,
+            },
+          });
+
+          this.sseStream.emitToBranch(tenantId, order.branch_id, 'dining.order_added', {
+            account_id: account.id,
+            order_id: order.id,
+            order_code: order.order_code,
+            version: newVersion,
+            grand_total_cop: newGrandTotal,
+          });
+        }
+      }
+
+      // 7. Construir mensaje y enlace de WhatsApp hacia el cliente (sin PII sensible)
       const customerSnapshot = order.customer_snapshot_json as any;
       const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
@@ -105,7 +158,7 @@ export class ProcessOrderService {
         trackingBaseUrl: baseUrl,
       });
 
-      // 7. Notificación en tiempo real vía Server-Sent Events
+      // 8. Notificación en tiempo real vía Server-Sent Events
       const editsCount = order.edits?.length || 0;
       const trackingUrl = `${baseUrl.replace(/\/+$/, '')}/t/${order.public_token}`;
 
@@ -116,6 +169,11 @@ export class ProcessOrderService {
         is_locked: true,
         grand_total_cop: updatedOrder.grand_total_cop,
         edits_count: editsCount,
+      });
+
+      this.sseStream.emitToBranch(tenantId, order.branch_id, 'kitchen.order_updated', {
+        order_id: updatedOrder.id,
+        status: 'ACCEPTED',
       });
 
       this.sseStream.emitToTracking(order.public_token, {
