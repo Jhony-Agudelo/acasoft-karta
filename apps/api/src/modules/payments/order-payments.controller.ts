@@ -93,7 +93,18 @@ export class OrderPaymentsController {
       });
     }
 
-    const parseResult = CreateAccountPaymentSchema.safeParse(body);
+    const idempotencyKey =
+      idempotencyKeyHeader ||
+      xIdempotencyKeyHeader ||
+      (body as any)?.idempotency_key ||
+      `pay-${crypto.randomUUID()}`;
+
+    const bodyWithIdempotency = {
+      ...(typeof body === 'object' && body !== null ? body : {}),
+      idempotency_key: (body as any)?.idempotency_key || idempotencyKey,
+    };
+
+    const parseResult = CreateAccountPaymentSchema.safeParse(bodyWithIdempotency);
     if (!parseResult.success) {
       throw new BadRequestException({
         errorCode: 'VALIDATION_ERROR',
@@ -101,12 +112,6 @@ export class OrderPaymentsController {
         errors: parseResult.error.flatten().fieldErrors,
       });
     }
-
-    const idempotencyKey =
-      idempotencyKeyHeader ||
-      xIdempotencyKeyHeader ||
-      parseResult.data.idempotency_key ||
-      `pay-${crypto.randomUUID()}`;
 
     return this.manualPaymentsService.recordAccountPayment(
       user.tenantId,

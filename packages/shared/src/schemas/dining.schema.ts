@@ -167,7 +167,14 @@ export const CreateAccountPaymentSchema = z.object({
   }),
   reference: z.string().trim().max(120).nullable().optional(),
   cash_tendered_cop: z.number().int().min(0).nullable().optional(),
-  idempotency_key: z.string().trim().min(8, 'La llave de idempotencia debe tener al menos 8 caracteres').max(120),
+  cash_received_cop: z.number().int().min(0).nullable().optional(),
+  cash_change_cop: z.number().int().min(0).nullable().optional(),
+  idempotency_key: z
+    .string()
+    .trim()
+    .min(8, 'La llave de idempotencia debe tener al menos 8 caracteres')
+    .max(120)
+    .optional(),
 });
 
 export type CreateAccountPaymentDto = z.infer<typeof CreateAccountPaymentSchema>;

@@ -76,14 +76,14 @@ export function printThermalContent(options: PrintReceiptOptions): void {
             }
           }
           body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: ${width === '58mm' ? '10px' : '11px'};
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            font-size: ${width === '58mm' ? '8.5px' : '9.5px'};
             line-height: 1.25;
             white-space: pre;
             overflow-x: hidden;
-            word-break: normal;
+            word-break: keep-all;
             overflow-wrap: normal;
-            padding: 6px 4px;
+            padding: 4px;
             margin: 0;
           }
         </style>

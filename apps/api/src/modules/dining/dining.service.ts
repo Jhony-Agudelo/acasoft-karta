@@ -449,7 +449,11 @@ export class DiningService {
             status: { notIn: ['REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'] },
           },
           include: {
-            items: true,
+            items: {
+              include: {
+                product: { select: { id: true, name: true } },
+              },
+            },
           },
           orderBy: { created_at: 'asc' },
         },
@@ -961,7 +965,11 @@ export class DiningService {
             status: { notIn: ['REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'] },
           },
           include: {
-            items: true,
+            items: {
+              include: {
+                product: { select: { id: true, name: true } },
+              },
+            },
           },
         },
       },

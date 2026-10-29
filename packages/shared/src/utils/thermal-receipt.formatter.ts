@@ -252,7 +252,7 @@ export function formatDiningPreCuentaText(
   data: DiningPreCuentaData,
   options: { width: '58mm' | '80mm' } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 40;
+  const cols = options.width === '58mm' ? 32 : 38;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 
@@ -414,7 +414,7 @@ export function formatDiningPaymentReceiptText(
   data: DiningPaymentReceiptData,
   options: { width: '58mm' | '80mm' } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 40;
+  const cols = options.width === '58mm' ? 32 : 38;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 

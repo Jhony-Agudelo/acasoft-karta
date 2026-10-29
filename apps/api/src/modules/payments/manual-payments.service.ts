@@ -518,13 +518,14 @@ export class ManualPaymentsService {
 
       let changeGivenCop: number | null = null;
       let cashReceivedCop: number | null = null;
+      const tendered = dto.cash_tendered_cop ?? dto.cash_received_cop;
       if (
         dto.method === 'CASH' &&
-        dto.cash_tendered_cop !== undefined &&
-        dto.cash_tendered_cop !== null
+        tendered !== undefined &&
+        tendered !== null
       ) {
-        changeGivenCop = calculateCashChange(dto.amount_cop, dto.cash_tendered_cop);
-        cashReceivedCop = dto.cash_tendered_cop;
+        changeGivenCop = calculateCashChange(dto.amount_cop, tendered);
+        cashReceivedCop = tendered;
       }
 
       const approvedPayments = account.payments.filter((p: any) => p.status === 'APPROVED');

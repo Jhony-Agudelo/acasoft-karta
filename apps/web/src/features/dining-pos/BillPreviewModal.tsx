@@ -77,6 +77,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
   const [paymentReference, setPaymentReference] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [lastPaymentInfo, setLastPaymentInfo] = useState<any | null>(null);
+  const [thermalWidth, setThermalWidth] = useState<'80mm' | '58mm'>('80mm');
 
   // Formulario de Cierre Especial
   const [showSpecialClose, setShowSpecialClose] = useState(false);
@@ -163,12 +164,15 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     try {
       const idempotencyKey = crypto.randomUUID();
       const payload: any = {
+        expected_account_version: account.version,
+        idempotency_key: idempotencyKey,
         method: paymentMethod,
         amount_cop: paymentAmountCop,
         reference: paymentReference.trim() || undefined,
       };
 
       if (paymentMethod === 'CASH' && typeof cashReceivedCop === 'number' && cashReceivedCop > 0) {
+        payload.cash_tendered_cop = cashReceivedCop;
         payload.cash_received_cop = cashReceivedCop;
         payload.cash_change_cop = cashChangeCop;
       }
@@ -177,7 +181,10 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
         `/accounts/${accountId}/payments/manual`,
         payload,
         {
-          headers: { 'Idempotency-Key': idempotencyKey },
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+            'x-idempotency-key': idempotencyKey,
+          },
         },
       );
 
@@ -212,12 +219,24 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
       onSuccess();
     } catch (err: any) {
+      const fieldErrors = err?.response?.data?.errors;
+      let errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Error al registrar el pago.';
+
+      if (fieldErrors && typeof fieldErrors === 'object') {
+        const details = Object.entries(fieldErrors)
+          .map(([field, errs]: [string, any]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+          .join(' | ');
+        if (details) {
+          errorMsg = `${errorMsg} (${details})`;
+        }
+      }
+
       setFeedback({
         type: 'error',
-        message:
-          err?.response?.data?.message ||
-          err?.message ||
-          'Error al registrar el pago.',
+        message: errorMsg,
       });
     } finally {
       setIsSubmittingPayment(false);
@@ -286,13 +305,26 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
 
   // Helper para extraer nombre y variante real del producto
   const getItemDisplayName = (it: any): string => {
-    const snap = it.product_snapshot_json as any;
+    let snap = it.product_snapshot_json as any;
+    if (typeof snap === 'string') {
+      try {
+        snap = JSON.parse(snap);
+      } catch {
+        snap = {};
+      }
+    }
     const baseName =
       snap?.product_name ||
       snap?.name ||
+      it.product?.name ||
       it.product_name ||
+      it.name ||
       'Producto';
-    const variant = snap?.variant_name ? ` (${snap.variant_name})` : '';
+    const variant = snap?.variant_name
+      ? ` (${snap.variant_name})`
+      : it.variant_name
+        ? ` (${it.variant_name})`
+        : '';
     return `${baseName}${variant}`;
   };
 
@@ -310,27 +342,30 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
       })),
     );
 
-    const receiptContent = formatDiningPreCuentaText({
-      restaurantName: settings.display_name || 'Karta Bistro',
-      branchName: 'Sede Principal',
-      tableCode: tableCode,
-      accountCode: account.account_code,
-      guestCount: account.guest_count,
-      openedAt: account.opened_at,
-      items: allItems,
-      subtotalProductsCop: account.subtotal_products_cop,
-      discountTotalCop: account.discount_total_cop,
-      tipCop: account.tip_cop,
-      grandTotalCop: account.grand_total_cop,
-      paidTotalCop: account.paid_total_cop,
-      payments: account.payments.map((p) => ({
-        method: p.method,
-        amountCop: p.amount_cop,
-        reference: p.reference,
-      })),
-    });
+    const receiptContent = formatDiningPreCuentaText(
+      {
+        restaurantName: settings.display_name || 'Karta Bistro',
+        branchName: 'Sede Principal',
+        tableCode: tableCode,
+        accountCode: account.account_code,
+        guestCount: account.guest_count,
+        openedAt: account.opened_at,
+        items: allItems,
+        subtotalProductsCop: account.subtotal_products_cop,
+        discountTotalCop: account.discount_total_cop,
+        tipCop: account.tip_cop,
+        grandTotalCop: account.grand_total_cop,
+        paidTotalCop: account.paid_total_cop,
+        payments: account.payments.map((p) => ({
+          method: p.method,
+          amountCop: p.amount_cop,
+          reference: p.reference,
+        })),
+      },
+      { width: thermalWidth },
+    );
 
-    printThermalContent({ content: receiptContent, width: '80mm' });
+    printThermalContent({ content: receiptContent, width: thermalWidth });
   };
 
   // Imprimir comprobante de pago formal en caja
@@ -350,31 +385,34 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     const paymentAmount = payment.amountCop ?? payment.amount_cop ?? 0;
     const paidAt = payment.paidAt || payment.created_at || new Date();
 
-    const receiptContent = formatDiningPaymentReceiptText({
-      restaurantName: settings.display_name || 'Karta Bistro',
-      branchName: 'Sede Principal',
-      tableCode: tableCode,
-      accountCode: account.account_code,
-      cashierName: user?.name || 'Cajero Salón',
-      paidAt,
-      items: allItems,
-      subtotalProductsCop: account.subtotal_products_cop,
-      discountTotalCop: account.discount_total_cop,
-      tipCop: account.tip_cop,
-      grandTotalCop: account.grand_total_cop,
-      payment: {
-        method: payment.method,
-        amountCop: paymentAmount,
-        cashReceivedCop: payment.cashReceivedCop ?? payment.cash_received_cop,
-        cashChangeCop: payment.cashChangeCop ?? payment.cash_change_cop,
-        reference: payment.reference,
+    const receiptContent = formatDiningPaymentReceiptText(
+      {
+        restaurantName: settings.display_name || 'Karta Bistro',
+        branchName: 'Sede Principal',
+        tableCode: tableCode,
+        accountCode: account.account_code,
+        cashierName: user?.name || 'Cajero Salón',
+        paidAt,
+        items: allItems,
+        subtotalProductsCop: account.subtotal_products_cop,
+        discountTotalCop: account.discount_total_cop,
+        tipCop: account.tip_cop,
+        grandTotalCop: account.grand_total_cop,
+        payment: {
+          method: payment.method,
+          amountCop: paymentAmount,
+          cashReceivedCop: payment.cashReceivedCop ?? payment.cash_received_cop,
+          cashChangeCop: payment.cashChangeCop ?? payment.cash_change_cop,
+          reference: payment.reference,
+        },
+        totalPaidCop: account.paid_total_cop,
+        pendingBalanceCop: Math.max(0, account.grand_total_cop - account.paid_total_cop),
+        isClosed: account.status === 'CLOSED' || account.paid_total_cop >= account.grand_total_cop,
       },
-      totalPaidCop: account.paid_total_cop,
-      pendingBalanceCop: Math.max(0, account.grand_total_cop - account.paid_total_cop),
-      isClosed: account.status === 'CLOSED' || account.paid_total_cop >= account.grand_total_cop,
-    });
+      { width: thermalWidth },
+    );
 
-    printThermalContent({ content: receiptContent, width: '80mm' });
+    printThermalContent({ content: receiptContent, width: thermalWidth });
   };
 
   return (
@@ -420,10 +458,30 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Selector de Ancho Térmico */}
+            <div className="flex items-center rounded-lg bg-stone-100 p-0.5 border border-stone-200 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setThermalWidth('80mm')}
+                className={`px-2 py-1 rounded-md transition ${thermalWidth === '80mm' ? 'bg-white shadow-xs text-stone-900 font-extrabold' : 'text-stone-500 hover:text-stone-700'}`}
+                title="Papel 80mm (Estándar)"
+              >
+                80mm
+              </button>
+              <button
+                type="button"
+                onClick={() => setThermalWidth('58mm')}
+                className={`px-2 py-1 rounded-md transition ${thermalWidth === '58mm' ? 'bg-white shadow-xs text-stone-900 font-extrabold' : 'text-stone-500 hover:text-stone-700'}`}
+                title="Papel 58mm (Compacto)"
+              >
+                58mm
+              </button>
+            </div>
+
             <button
               onClick={handlePrintPreCuenta}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold text-xs shadow-xs transition"
-              title="Imprimir Pre-cuenta Térmica"
+              title={`Imprimir Pre-cuenta Térmica (${thermalWidth})`}
             >
               <Printer className="h-4 w-4 text-stone-500" />
               <span className="hidden sm:inline">Imprimir Pre-cuenta</span>
@@ -515,7 +573,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                     <div className="flex items-center justify-between text-xs border-b border-stone-200/60 pb-1.5">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-stone-800 font-mono">
-                          #{ord.order_code}
+                          {ord.order_code?.startsWith('#') ? ord.order_code : `#${ord.order_code}`}
                         </span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-600">
                           {ord.origin}
