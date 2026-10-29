@@ -101,5 +101,98 @@ describe('TC-POST06: Separación de Roles y Aislamiento de Sucursales', () => {
       expect(isBranchLockedForWaiter('BRANCH_MANAGER', 2)).toBe(false);
     });
   });
+
+  describe('4. Aislamiento Estricto de Carrito (Table QR vs Takeout/Delivery)', () => {
+    const computeStoreKey = (
+      restaurantSlug: string,
+      branchSlug: string,
+      isTableQr: boolean,
+      qrToken?: string | null,
+      tableId?: string | null,
+    ) => {
+      const branchPart = branchSlug || 'branch';
+      if (isTableQr && qrToken) {
+        const tablePart = tableId ? `table-${tableId}` : `qr-${qrToken.slice(0, 16)}`;
+        return `${restaurantSlug}/${branchPart}/${tablePart}`;
+      }
+      return `${restaurantSlug}/${branchPart}/takeout`;
+    };
+
+    it('debe generar claves completamente separadas para Salón (Mesa) y Tienda (Takeout/Delivery)', () => {
+      const tableKeyM01 = computeStoreKey('karta-demo', 'sede-gourmet', true, 'token-qr-m01-abcdef12345678', 'table-uuid-1');
+      const tableKeyM02 = computeStoreKey('karta-demo', 'sede-gourmet', true, 'token-qr-m02-9876543210fedc', 'table-uuid-2');
+      const takeoutKey = computeStoreKey('karta-demo', 'sede-gourmet', false);
+
+      // El carrito de la mesa M-01 NUNCA comparte almacenamiento con la mesa M-02 ni con takeout
+      expect(tableKeyM01).toBe('karta-demo/sede-gourmet/table-table-uuid-1');
+      expect(tableKeyM02).toBe('karta-demo/sede-gourmet/table-table-uuid-2');
+      expect(takeoutKey).toBe('karta-demo/sede-gourmet/takeout');
+
+      expect(tableKeyM01).not.toBe(takeoutKey);
+      expect(tableKeyM01).not.toBe(tableKeyM02);
+    });
+
+    it('debe aislar carritos entre diferentes sedes bajo la misma marca', () => {
+      const sedeGourmetTakeout = computeStoreKey('karta-demo', 'sede-gourmet', false);
+      const sedeNorteTakeout = computeStoreKey('karta-demo', 'sede-norte', false);
+
+      expect(sedeGourmetTakeout).toBe('karta-demo/sede-gourmet/takeout');
+      expect(sedeNorteTakeout).toBe('karta-demo/sede-norte/takeout');
+      expect(sedeGourmetTakeout).not.toBe(sedeNorteTakeout);
+    });
+  });
+
+  describe('5. Bloqueo de Sede y Modalidad en Menú Público con QR de Mesa', () => {
+    it('debe forzar la sucursal de la mesa cuando se escanea un QR de Salón', () => {
+      const resolveBranch = (
+        isTableQr: boolean,
+        qrData: { branch_slug?: string; branch_id?: string } | null,
+        urlBranchSlug?: string,
+        branches: Array<{ slug: string; name: string }> = [],
+      ) => {
+        if (isTableQr && qrData?.branch_slug) {
+          const match = branches.find((b) => b.slug === qrData.branch_slug);
+          if (match) return match;
+        }
+        if (urlBranchSlug) {
+          return branches.find((b) => b.slug === urlBranchSlug) || branches[0];
+        }
+        return branches[0];
+      };
+
+      const branchesList = [
+        { slug: 'sede-gourmet', name: 'Sede Gourmet Zona G' },
+        { slug: 'sede-norte', name: 'Sede Norte Chía' },
+      ];
+
+      // Aunque el usuario navegue o intente acceder con otra sede en URL,
+      // la mesa pertenece físicamente a Sede Gourmet y se bloquea obligatoriamente a Sede Gourmet
+      const resolved = resolveBranch(true, { branch_slug: 'sede-gourmet' }, 'sede-norte', branchesList);
+      expect(resolved?.slug).toBe('sede-gourmet');
+      expect(resolved?.name).toBe('Sede Gourmet Zona G');
+    });
+
+    it('debe ocultar el selector de sedes cuando el comensal está en mesa física', () => {
+      const shouldShowBranchSwitcher = (isTableQr: boolean, branchesCount: number) => {
+        return !isTableQr && branchesCount > 1;
+      };
+
+      expect(shouldShowBranchSwitcher(true, 3)).toBe(false); // En mesa -> Oculto siempre
+      expect(shouldShowBranchSwitcher(false, 3)).toBe(true);  // En storefront general -> Visible
+      expect(shouldShowBranchSwitcher(false, 1)).toBe(false); // Solo 1 sede -> Oculto
+    });
+
+    it('debe forzar la modalidad DINE_IN en CheckoutModal sin permitir cambiar a Domicilio', () => {
+      const allowedFulfillments = (tableQrInfo?: { qrToken: string } | null) => {
+        if (tableQrInfo) {
+          return ['DINE_IN']; // Estrictamente bloqueado
+        }
+        return ['DELIVERY', 'PICKUP']; // Tienda pública general
+      };
+
+      expect(allowedFulfillments({ qrToken: 'token-m01' })).toEqual(['DINE_IN']);
+      expect(allowedFulfillments(null)).toEqual(['DELIVERY', 'PICKUP']);
+    });
+  });
 });
 

@@ -103,6 +103,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [zones, selectedZoneId]);
 
+  // Sincronizar modalidad estrictamente según la presencia de tableQrInfo
+  React.useEffect(() => {
+    if (tableQrInfo) {
+      setFulfillmentType('DINE_IN');
+    } else if (fulfillmentType === 'DINE_IN') {
+      setFulfillmentType('DELIVERY');
+    }
+  }, [tableQrInfo, isOpen]);
+
   if (!isOpen) return null;
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId);
@@ -214,9 +223,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/60 shrink-0">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-orange-600" />
+            {tableQrInfo ? (
+              <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+            ) : (
+              <ShoppingBag className="h-5 w-5 text-orange-600" />
+            )}
             <h2 className="font-extrabold text-stone-900 text-base">
-              {createdOrder ? '¡Pedido Generado!' : 'Finalizar Pedido'}
+              {createdOrder
+                ? '¡Pedido Generado!'
+                : tableQrInfo
+                  ? `Comanda en Mesa — ${tableQrInfo.label}`
+                  : 'Finalizar Pedido'}
             </h2>
           </div>
           <button
@@ -296,64 +313,65 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Selector de Modalidad */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider">
-                  Modalidad de Entrega
-                </label>
-                <div
-                  className={`grid ${
-                    tableQrInfo ? 'grid-cols-3' : 'grid-cols-2'
-                  } gap-2 p-1 bg-stone-100 rounded-2xl`}
-                >
-                  {tableQrInfo && (
+              {/* Modalidad de Entrega */}
+              {tableQrInfo ? (
+                /* MODO SALÓN FÍSICO: Bloqueado a DINE_IN para evitar pérdida de asignación de mesa */
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 shadow-2xs">
+                    <UtensilsCrossed className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                        Comanda en Mesa Física
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-orange-600 text-white text-[10px] font-black">
+                        {tableQrInfo.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 mt-0.5 font-medium">
+                      Tu pedido se añadirá a la comanda de la mesa y se enviará directo a cocina y a tu mesero.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* MODO STOREFRONT GENERAL: Solo Domicilio o Para Llevar */
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider">
+                    Modalidad de Entrega
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-stone-100 rounded-2xl">
                     <button
                       type="button"
-                      onClick={() => setFulfillmentType('DINE_IN')}
+                      onClick={() => setFulfillmentType('DELIVERY')}
                       className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        fulfillmentType === 'DINE_IN'
+                        fulfillmentType === 'DELIVERY'
                           ? 'bg-white text-orange-600 shadow-2xs'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
                     >
-                      <UtensilsCrossed className="h-4 w-4" />
-                      <span>En Mesa</span>
+                      <Truck className="h-4 w-4" />
+                      <span>Domicilio</span>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setFulfillmentType('DELIVERY')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                      fulfillmentType === 'DELIVERY'
-                        ? 'bg-white text-orange-600 shadow-2xs'
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
-                  >
-                    <Truck className="h-4 w-4" />
-                    <span>Domicilio</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFulfillmentType('PICKUP')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                      fulfillmentType === 'PICKUP'
-                        ? 'bg-white text-orange-600 shadow-2xs'
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>Para Llevar</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setFulfillmentType('PICKUP')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                        fulfillmentType === 'PICKUP'
+                          ? 'bg-white text-orange-600 shadow-2xs'
+                          : 'text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      <span>Para Llevar</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Campos para Pedido en Mesa (DINE_IN) */}
               {fulfillmentType === 'DINE_IN' && tableQrInfo && (
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-extrabold text-amber-900">
-                    <UtensilsCrossed className="h-4 w-4 text-amber-600" />
-                    <span>Estás pidiendo en la {tableQrInfo.label}</span>
-                  </div>
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-stone-700 flex items-center gap-1">
                       <KeyRound className="h-3.5 w-3.5 text-stone-400" />

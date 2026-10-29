@@ -211,6 +211,159 @@ export const DiningAdminSettings: React.FC = () => {
     setStandToView(table);
   };
 
+  const handlePrintStand = (table: TableAdminItem) => {
+    const qrUrl = getTableQrUrl(table);
+    const area = areas.find((a) => a.id === table.area_id);
+    const brandName = (settings.display_name || 'Karta Bistro').toUpperCase();
+    const areaName = (area?.name || 'Salón Principal').toUpperCase();
+
+    const svgEl = document.getElementById(`stand-qr-svg-${table.id}`);
+    const svgHtml = svgEl ? svgEl.outerHTML : '';
+
+    const printWindow = window.open('', '_blank', 'width=650,height=850');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Portamesa QR - Mesa ${table.code}</title>
+          <style>
+            @page {
+              size: A6 portrait;
+              margin: 0;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: #ffffff;
+              padding: 6mm;
+            }
+            .stand-container {
+              width: 95mm;
+              height: 138mm;
+              border: 2px dashed #78716c;
+              border-radius: 16px;
+              padding: 8mm 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              text-align: center;
+              background: #ffffff;
+            }
+            .brand-title {
+              font-size: 13pt;
+              font-weight: 900;
+              color: #ea580c;
+              letter-spacing: 2px;
+              text-transform: uppercase;
+            }
+            .area-subtitle {
+              font-size: 8.5pt;
+              font-weight: 700;
+              color: #78716c;
+              margin-top: 2px;
+            }
+            .table-heading {
+              font-size: 28pt;
+              font-weight: 900;
+              color: #1c1917;
+              font-family: monospace;
+              line-height: 1.1;
+              margin-top: 4px;
+            }
+            .instructions {
+              font-size: 8pt;
+              font-weight: 600;
+              color: #57534e;
+              margin-top: 3px;
+            }
+            .qr-wrapper {
+              padding: 4mm;
+              border: 1px solid #e7e5e4;
+              border-radius: 14px;
+              background: #ffffff;
+              margin: 5px 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-wrapper svg {
+              width: 155px;
+              height: 155px;
+            }
+            .pin-badge {
+              background: #fef3c7;
+              border: 1px solid #fde68a;
+              color: #78350f;
+              font-size: 7.5pt;
+              font-weight: 800;
+              padding: 3px 10px;
+              border-radius: 20px;
+              display: inline-block;
+            }
+            .url-backup {
+              font-size: 6.5pt;
+              font-family: monospace;
+              color: #a8a29e;
+              margin-top: 3px;
+              max-width: 80mm;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .powered-tag {
+              font-size: 7pt;
+              color: #d6d3d1;
+              font-weight: 700;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="stand-container">
+            <div>
+              <div class="brand-title">${brandName}</div>
+              <div class="area-subtitle">${areaName}</div>
+            </div>
+            <div>
+              <div class="table-heading">MESA ${table.code}</div>
+              <div class="instructions">Escanea con tu celular para ver la carta y pedir</div>
+            </div>
+            <div class="qr-wrapper">
+              ${svgHtml}
+            </div>
+            <div>
+              <div class="pin-badge">Tu mesero te dará el PIN de 4 dígitos al sentarte</div>
+              <div class="url-backup">${qrUrl}</div>
+            </div>
+            <div class="powered-tag">POWERED BY KARTA</div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleDownloadPng = (table: TableAdminItem) => {
     const svgEl = document.getElementById(`stand-qr-svg-${table.id}`);
     if (!svgEl) return;
@@ -874,7 +1027,7 @@ export const DiningAdminSettings: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => handlePrintStand(standToView)}
                     className="py-3 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 transition"
                   >
                     <Printer className="h-4 w-4" />

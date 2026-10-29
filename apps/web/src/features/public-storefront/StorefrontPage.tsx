@@ -58,33 +58,54 @@ export const StorefrontPage: React.FC = () => {
     enabled: !!restaurantSlug,
   });
 
-  // 2. Obtener menú público
-  const { data: menuData, isLoading: isLoadingMenu } = useQuery({
-    queryKey: ['public-restaurant-menu', restaurantSlug, branchSlug],
-    queryFn: () =>
-      apiClient.get(
-        `/public/${restaurantSlug}/menu${branchSlug ? `?branchSlug=${branchSlug}` : ''}`,
-      ),
-    enabled: !!restaurantSlug,
-  });
-
   const tenant = storeInfo?.tenant;
   const brand = tenant?.brand_settings || {};
   const branches = storeInfo?.branches || [];
 
-  // Resolver sucursal activa
+  // Determinar si la sesión proviene de un QR físico de mesa
+  const isTableQr = Boolean(qrToken && (qrData ? qrData.target_type === 'DINING_TABLE' : true));
+
+  // Resolver sucursal activa:
+  // Si es un QR de mesa física, se BLOQUEA obligatoriamente a la sucursal de la mesa (qrData.branch_slug)
+  // para evitar que el comensal cambie de sede y pierda la mesa física
   const currentBranch = useMemo(() => {
+    if (isTableQr && qrData?.branch_slug) {
+      const match = branches.find(
+        (b: any) => b.slug === qrData.branch_slug || b.id === qrData.branch_id,
+      );
+      if (match) return match;
+    }
     if (branchSlug) {
       return branches.find((b: any) => b.slug === branchSlug) || branches[0];
     }
     return branches.find((b: any) => b.is_default) || branches[0];
-  }, [branches, branchSlug]);
+  }, [branches, branchSlug, isTableQr, qrData]);
 
-  // Verificar si la sucursal tiene habilitado el módulo ordering
-  const canOrder = Boolean(currentBranch?.capabilities?.ordering);
+  // 2. Obtener menú público sincronizado con la sucursal activa
+  const activeBranchSlug = currentBranch?.slug || branchSlug;
+  const { data: menuData, isLoading: isLoadingMenu } = useQuery({
+    queryKey: ['public-restaurant-menu', restaurantSlug, activeBranchSlug],
+    queryFn: () =>
+      apiClient.get(
+        `/public/${restaurantSlug}/menu${activeBranchSlug ? `?branchSlug=${activeBranchSlug}` : ''}`,
+      ),
+    enabled: !!restaurantSlug,
+  });
 
-  // Store de Carrito
-  const storeKey = `${restaurantSlug}${currentBranch?.slug ? `/${currentBranch.slug}` : ''}`;
+  // Verificar si la sucursal tiene habilitado el módulo ordering o si está en mesa física
+  const canOrder = Boolean(currentBranch?.capabilities?.ordering || isTableQr);
+
+  // Store de Carrito: AISLAMIENTO ESTRICTO ENTRE PEDIDOS EN MESA Y DOMICILIO/RECOGIDA
+  // Cada mesa física tiene su propia clave de carrito para evitar contaminación entre mesas o pedidos anteriores
+  const storeKey = useMemo(() => {
+    const branchPart = currentBranch?.slug || 'branch';
+    if (isTableQr && qrToken) {
+      const tablePart = qrData?.table_id ? `table-${qrData.table_id}` : `qr-${qrToken.slice(0, 16)}`;
+      return `${restaurantSlug}/${branchPart}/${tablePart}`;
+    }
+    return `${restaurantSlug}/${branchPart}/takeout`;
+  }, [restaurantSlug, currentBranch?.slug, isTableQr, qrToken, qrData?.table_id]);
+
   const cartStore = useCartStore();
   const cartItems = cartStore.getCartItems(storeKey);
   const cartSummary = cartStore.getCartSummary(storeKey);
@@ -282,24 +303,39 @@ export const StorefrontPage: React.FC = () => {
             )}
           </div>
 
-          {/* Selector de Sucursales si hay más de 1 */}
-          {branches.length > 1 && (
-            <div className="pt-2 flex items-center gap-2 overflow-x-auto text-xs">
-              <span className="text-stone-400 font-bold shrink-0">Otras Sedes:</span>
-              {branches.map((b: any) => (
-                <Link
-                  key={b.id}
-                  to={`/r/${restaurantSlug}/b/${b.slug}`}
-                  className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition ${
-                    b.slug === currentBranch?.slug
-                      ? 'bg-orange-600 text-white shadow-2xs'
-                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                  }`}
-                >
-                  {b.name}
-                </Link>
-              ))}
+          {/* MODO MESA FÍSICA: Bloquear selector de sedes y mostrar badge fijo de salón */}
+          {isTableQr ? (
+            <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 text-amber-950 font-extrabold shadow-2xs">
+                <UtensilsCrossed className="h-4 w-4 text-orange-600" />
+                <span>{qrData?.label || 'Mesa del Salón'}</span>
+                <span className="text-stone-300">•</span>
+                <span className="text-stone-700 font-semibold">{currentBranch?.name}</span>
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-900 text-[10px] uppercase tracking-wider font-black">
+                  Atención en Mesa
+                </span>
+              </div>
             </div>
+          ) : (
+            /* MODO DOMICILIO / TAKE-OUT: Selector de sedes disponible si hay más de 1 */
+            branches.length > 1 && (
+              <div className="pt-2 flex items-center gap-2 overflow-x-auto text-xs">
+                <span className="text-stone-400 font-bold shrink-0">Otras Sedes:</span>
+                {branches.map((b: any) => (
+                  <Link
+                    key={b.id}
+                    to={`/r/${restaurantSlug}/b/${b.slug}`}
+                    className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition ${
+                      b.slug === currentBranch?.slug
+                        ? 'bg-orange-600 text-white shadow-2xs'
+                        : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    }`}
+                  >
+                    {b.name}
+                  </Link>
+                ))}
+              </div>
+            )
           )}
         </div>
 
@@ -509,8 +545,14 @@ export const StorefrontPage: React.FC = () => {
             {/* Header del carrito */}
             <div className="flex items-center justify-between p-5 border-b border-stone-100">
               <div className="flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-orange-600" />
-                <h3 className="font-extrabold text-stone-900 text-base">Mi Pedido</h3>
+                {isTableQr ? (
+                  <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+                ) : (
+                  <ShoppingBag className="h-5 w-5 text-orange-600" />
+                )}
+                <h3 className="font-extrabold text-stone-900 text-base">
+                  {isTableQr ? `Comanda — ${qrData?.label || 'Mesa del Salón'}` : 'Mi Pedido'}
+                </h3>
                 <span className="text-xs font-bold text-stone-400">
                   ({cartSummary.totalItems} ítems)
                 </span>
@@ -620,13 +662,26 @@ export const StorefrontPage: React.FC = () => {
                 }}
                 className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-lg shadow-orange-600/25 transition flex items-center justify-center gap-2"
               >
-                <Send className="h-4 w-4" />
-                <span>Terminar pedido por WhatsApp</span>
+                {isTableQr ? (
+                  <>
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <span>Enviar comanda a la mesa</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Continuar con el pedido</span>
+                  </>
+                )}
               </button>
 
               <button
-                onClick={() => cartStore.clearCart(storeKey)}
-                className="w-full text-center text-[10px] font-bold text-stone-400 hover:text-rose-600"
+                onClick={() => {
+                  if (window.confirm('¿Deseas vaciar todos los productos del pedido?')) {
+                    cartStore.clearCart(storeKey);
+                  }
+                }}
+                className="w-full text-center text-xs font-bold text-stone-400 hover:text-rose-600 transition pt-1"
               >
                 Vaciar carrito
               </button>
@@ -635,7 +690,7 @@ export const StorefrontPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Checkout con Selección de Zona y WhatsApp */}
+      {/* Modal de Checkout con Selección de Zona o Comanda de Mesa */}
       {currentBranch && (
         <CheckoutModal
           isOpen={isCheckoutModalOpen}
@@ -646,8 +701,8 @@ export const StorefrontPage: React.FC = () => {
           cartSummary={cartSummary}
           taxProfile={taxProfile}
           tableQrInfo={
-            qrData?.target_type === 'DINING_TABLE' && qrToken
-              ? { qrToken, label: qrData.label || 'Mesa del Salón' }
+            isTableQr && qrToken
+              ? { qrToken, label: qrData?.label || 'Mesa del Salón' }
               : undefined
           }
         />

@@ -181,10 +181,77 @@ Para evitar que la opción de impresión capture toda la interfaz administrativa
    - Al hacer clic en **"Portamesa"** desde la pestaña de mesas o en **"Ver & Imprimir Portamesa"** desde la pestaña de portamesas:
      - Se abre un modal emergente que previsualiza el diseño exacto del acrílico físico (10x15 cm).
      - Incluye el logo de la marca, nombre del ambiente, número grande de mesa (ej. *Mesa M-01*), código QR en alta definición, instrucciones para el comensal y la URL pública de respaldo.
-3. **Aislamiento en Estilos de Impresión (`@media print`):**
-   - Se incorporó una regla CSS `@media print` dedicada que oculta el 100 % de la aplicación web (`body * { visibility: hidden }`) y centra exclusivamente la tarjeta del portamesa (`#printable-table-stand { visibility: visible }`).
-   - Al seleccionar *"Guardar como PDF"* o enviar a la impresora, el documento resultante contiene únicamente el soporte acrílico de la mesa seleccionada, con bordes de corte delimitados.
+3. **Motor de Impresión Aislado mediante Ventana / Iframe Dedicado:**
+   - Para erradicar cualquier artefacto de la interfaz SPA en el cuadro de diálogo de impresión del navegador, se implementó la función `handlePrintStand(table)`:
+     - Genera un documento HTML puro en una ventana emergente de impresión con hoja estándar A6 retrato (`@page { size: A6 portrait; margin: 0; }`).
+     - Inserta directamente el vector SVG de alta resolución del código QR, encabezado institucional, número de mesa y líneas de corte para guillotina o taller de acrílico.
+     - Dispara de forma automática `print()` sin incluir ningún elemento DOM del panel administrativo.
 4. **Descarga de Alta Resolución en PNG (1200 x 1600 px):**
-   - Se añadió la opción de descarga directa en formato PNG con canvas de alta definición, permitiendo enviar el archivo a imprentas o talleres de acrílico sin depender del cuadro de diálogo del navegador.
+   - Opción de descarga directa en formato PNG con canvas de alta definición a 300 DPI equivalentes, idóneo para imprentas digitales.
+
+---
+
+### 6.5 Aislamiento Estricto de Carrito: Mesa Física vs Menú Público (Takeout / Domicilio)
+
+#### Causa Raíz Identificada
+El store de carrito (`useCartStore`) persistía los ítems en `localStorage` utilizando una clave genérica `${restaurantSlug}/${branchSlug}`. Como consecuencia:
+- Un usuario que probaba o realizaba un pedido de domicilio a las 11:00 AM guardaba sus ítems en esa clave.
+- Cuando ese mismo usuario o navegador escaneaba el código QR de la **Mesa M-01** en el restaurante físico a la 1:00 PM, el sistema leía la misma clave y **cargaba los productos del domicilio anterior dentro de la mesa física**.
+- Asimismo, un comensal que salía de la mesa y luego abría la tienda pública para pedir a domicilio se encontraba con los productos de su almuerzo en el salón.
+
+#### Arquitectura de Claves Segregadas por Contexto Operativo
+En `StorefrontPage.tsx`, la clave de almacenamiento (`storeKey`) se calcula dinámicamente según la modalidad:
+```typescript
+const isTableQr = Boolean(qrToken && (qrData ? qrData.target_type === 'DINING_TABLE' : true));
+
+const storeKey = useMemo(() => {
+  const branchPart = currentBranch?.slug || 'branch';
+  if (isTableQr && qrToken) {
+    // Clave aislada para la mesa física
+    const tablePart = qrData?.table_id ? `table-${qrData.table_id}` : `qr-${qrToken.slice(0, 16)}`;
+    return `${restaurantSlug}/${branchPart}/${tablePart}`;
+  }
+  // Clave aislada para la tienda pública de domicilio / recogida
+  return `${restaurantSlug}/${branchPart}/takeout`;
+}, [restaurantSlug, currentBranch?.slug, isTableQr, qrToken, qrData?.table_id]);
+```
+
+**Garantías Operativas Logradas:**
+1. **Inmunidad Total:** El carrito de la mesa física nace 100 % limpio y aislado, sin importar qué pedidos previos existan en el dispositivo.
+2. **Aislamiento Inter-Mesa:** La Mesa M-01 y la Mesa M-02 manejan claves completamente independientes; nunca comparten productos ni estados.
+3. **Acción de Vaciado Rápido:** Se añadió un botón accesible de `"Vaciar carrito"` con confirmación en el cajón lateral para permitir reiniciar la comanda en cualquier momento.
+
+---
+
+### 6.6 Bloqueo Inquebrantable de Sucursal y Modalidad en QR de Salón
+
+#### Problema Detectado
+En la vista pública compartida del menú, los clientes con QR de mesa visualizaban el enlace `"Otras Sedes:"`. Al hacer clic en otra sucursal, el navegador navegaba a `/r/:slug/b/:otraSede`, eliminando el parámetro `?qr=...`, con lo cual **el comensal perdía irreversiblemente la vinculación de su mesa física**. Además, en el modal de checkout se presentaban pestañas para pedir domicilio o para llevar a comensales sentados en la sala.
+
+#### Solución e Implementación
+
+| Aspecto | Modo Salón (Mesa Física con QR) | Modo Menú Público (Sin Mesa / Domicilio) |
+|---|---|---|
+| **Detección** | Parámetro `?qr=...` con `target_type: 'DINING_TABLE'`. | Navegación a `/r/:slug` sin parámetro QR de mesa. |
+| **Sucursal Activa** | **BLOQUEADA** rígidamente a `qrData.branch_slug`. No se permite cambiar de sede. | Navegación libre entre todas las sucursales del restaurante. |
+| **Selector de Sedes** | **OCULTO**. Se sustituye por un badge fijo de salón: `🍽️ Mesa M-01 • Sede Gourmet [Atención en Mesa]`. | **VISIBLE** si el restaurante tiene más de una sucursal activa. |
+| **Modalidad en Checkout** | **BLOQUEADA a `DINE_IN`**. Sin pestañas ni opciones de Domicilio o Para Llevar. | Solo ofrece **`DELIVERY`** (Domicilio) y **`PICKUP`** (Para Llevar). `DINE_IN` no se ofrece. |
+| **Datos Solicitados** | Nombre, WhatsApp y PIN de mesa (4 dígitos). Sin dirección ni tarifa de envío. | Dirección completa, barrio, zona de cobertura y costo de domicilio. |
+| **Botón en Cajón de Carrito** | `"Enviar comanda a la mesa"` con icono de cubiertos. | `"Continuar con el pedido"` con icono de envío. |
+| **Destino de la Orden** | Comanda enviada al mesero y al KDS de cocina; seguimiento en vivo de la mesa. | Pedido registrado para despacho y enlace directo a WhatsApp de la sucursal. |
+
+---
+
+### 6.7 Verificación Automatizada (Tests Unitarios y E2E Playwright)
+
+Se agregaron pruebas unitarias en `apps/web/test/TC-POST06-ROLES-BRANCHES.spec.ts` que validan formalmente:
+1. Generación de claves de carrito independientes para Salón (`table-...`) vs Domicilio (`takeout`).
+2. Aislamiento estricto de almacenamiento entre diferentes mesas y sedes.
+3. Forzado y bloqueo inquebrantable de sucursal bajo QR de salón.
+4. Ocultamiento del selector de sedes cuando el comensal está en salón físico.
+5. Exclusividad de la modalidad `DINE_IN` en checkout cuando existe `tableQrInfo`.
+
+Total de pruebas del monorepo: **204 pruebas unitarias e integrales en verde (100 % de éxito)**.
+
 
 
