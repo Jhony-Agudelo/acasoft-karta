@@ -21,6 +21,7 @@ import { FullOrderPanelPage } from './features/full-order-panel/FullOrderPanelPa
 import { KitchenKdsPage } from './features/kitchen-kds/KitchenKdsPage';
 import { DeliveryZonesPage } from './features/admin-delivery/DeliveryZonesPage';
 import { CustomersDirectoryPage } from './features/admin-customers/CustomersDirectoryPage';
+import { ReportsPage } from './features/reports/ReportsPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   UtensilsCrossed,
@@ -97,6 +98,15 @@ export const App: React.FC = () => {
           element={
             <CapabilityRoute module="order_panel" moduleName="Panel Liviano de Pedidos">
               <LiteOrderPanelPage />
+            </CapabilityRoute>
+          }
+        />
+
+        <Route
+          path="reports"
+          element={
+            <CapabilityRoute module="reporting" moduleName="Reportes y Conciliación">
+              <ReportsPage />
             </CapabilityRoute>
           }
         />

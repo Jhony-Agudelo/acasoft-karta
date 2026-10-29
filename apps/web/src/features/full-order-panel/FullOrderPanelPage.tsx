@@ -23,6 +23,7 @@ import {
   FileEdit,
   DollarSign,
   Filter,
+  Printer,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -32,6 +33,7 @@ import { playNewOrderChime } from '../lite-order-panel/order-sound';
 import { OrderAdjustModal, OrderItemAdjustState } from '../lite-order-panel/OrderAdjustModal';
 import { ManualPaymentModal } from './ManualPaymentModal';
 import { OrderHistoryDrawer } from './OrderHistoryDrawer';
+import { PrintReceiptModal } from '../../components/print/PrintReceiptModal';
 
 type PanelTab =
   | 'requests'
@@ -60,6 +62,7 @@ export const FullOrderPanelPage: React.FC = () => {
   const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<any | null>(null);
 
   // Sonido
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
@@ -646,6 +649,14 @@ export const FullOrderPanelPage: React.FC = () => {
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
+
+                      <button
+                        onClick={() => setSelectedOrderForPrint(order)}
+                        className="p-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 font-bold text-xs transition-colors shadow-2xs"
+                        title="Imprimir ticket térmico (58mm / 80mm)"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-stone-600" />
+                      </button>
                     </div>
 
                     {/* Fila 2: Transición Operativa según estado actual */}
@@ -785,6 +796,15 @@ export const FullOrderPanelPage: React.FC = () => {
             setAdjustingOrder(null);
             queryClient.invalidateQueries({ queryKey: ['full-branch-orders'] });
           }}
+        />
+      )}
+
+      {/* Modal de Impresión Térmica */}
+      {selectedOrderForPrint && (
+        <PrintReceiptModal
+          isOpen={!!selectedOrderForPrint}
+          onClose={() => setSelectedOrderForPrint(null)}
+          order={selectedOrderForPrint}
         />
       )}
     </div>

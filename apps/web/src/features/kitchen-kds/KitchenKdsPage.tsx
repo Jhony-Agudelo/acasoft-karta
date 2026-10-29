@@ -14,11 +14,13 @@ import {
   AlertTriangle,
   Layers,
   Sparkles,
+  Printer,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
 import { useSseStream } from '../../hooks/use-sse-stream';
 import { playNewOrderChime } from '../lite-order-panel/order-sound';
+import { PrintReceiptModal } from '../../components/print/PrintReceiptModal';
 
 interface KitchenItem {
   id: string;
@@ -61,6 +63,7 @@ export const KitchenKdsPage: React.FC = () => {
 
   // Filtro de estación de cocina
   const [selectedStationKey, setSelectedStationKey] = useState<string>('ALL');
+  const [orderForPrint, setOrderForPrint] = useState<any | null>(null);
 
   // Sonido
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
@@ -450,12 +453,12 @@ export const KitchenKdsPage: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Footer Comanda con Botón Marcar Todo Listo */}
-                  <div className="p-3 bg-[#1e1b19] border-t border-stone-800">
+                  {/* Footer Comanda con Botón Marcar Todo Listo e Imprimir */}
+                  <div className="p-3 bg-[#1e1b19] border-t border-stone-800 flex items-center gap-2">
                     <button
                       onClick={() => handleMarkAllReady(order)}
                       disabled={allReady}
-                      className={`w-full py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md ${
+                      className={`flex-1 py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md ${
                         allReady
                           ? 'bg-stone-800 text-stone-500 cursor-not-allowed'
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
@@ -464,6 +467,15 @@ export const KitchenKdsPage: React.FC = () => {
                       <CheckCircle2 className="w-4 h-4" />
                       <span>{allReady ? 'Comanda Lista' : 'Marcar Todo Listo'}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOrderForPrint(order)}
+                      className="p-2.5 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold text-xs transition-colors shrink-0"
+                      title="Imprimir Comanda Térmica"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
@@ -471,6 +483,15 @@ export const KitchenKdsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Impresión Térmica */}
+      {orderForPrint && (
+        <PrintReceiptModal
+          isOpen={!!orderForPrint}
+          onClose={() => setOrderForPrint(null)}
+          order={orderForPrint}
+        />
+      )}
     </div>
   );
 };

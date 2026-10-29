@@ -1,0 +1,25 @@
+{
+  "name": "Karta — Sistema Operativo Gastronómico",
+  "short_name": "Karta",
+  "description": "Plataforma SaaS para Restaurantes: Pedidos, Cocina KDS y Reportes",
+  "theme_color": "#ea580c",
+  "background_color": "#faf8f5",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/images/karta-hero.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/karta-hero.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

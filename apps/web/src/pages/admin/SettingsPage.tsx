@@ -22,16 +22,17 @@ import {
   Copy,
   Check,
   Calculator,
+  Crown,
 } from 'lucide-react';
 import { generateStaffInvitationLink, RoleKey } from '@restaurante-saas/shared';
 import { TaxProfileForm } from '../../features/admin-settings/tax-profile-form';
-
+import { SubscriptionTab } from '../../features/admin-settings/SubscriptionTab';
 export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentBranchId, user } = useAuthStore();
   const { settings: brandSettings, setBrandSettings } = useBrandStore();
 
-  const [activeTab, setActiveTab] = useState<'brand' | 'branches' | 'tax' | 'payments' | 'team'>('brand');
+  const [activeTab, setActiveTab] = useState<'brand' | 'branches' | 'tax' | 'payments' | 'team' | 'subscription'>('brand');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -168,6 +169,7 @@ export const SettingsPage: React.FC = () => {
             { id: 'tax', label: 'Régimen Tributario & Precios', icon: Calculator },
             { id: 'payments', label: 'Políticas de Pago y Canales', icon: Wallet },
             { id: 'team', label: 'Equipo y Permisos', icon: Users2 },
+            { id: 'subscription', label: 'Suscripción SaaS', icon: Crown },
           ].map((tab) => {
             const active = activeTab === tab.id;
             const Icon = tab.icon;
@@ -620,6 +622,13 @@ export const SettingsPage: React.FC = () => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* TAB 6: SUSCRIPCIÓN SAAS */}
+      {activeTab === 'subscription' && (
+        <div className="max-w-4xl">
+          <SubscriptionTab />
         </div>
       )}
 

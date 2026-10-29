@@ -26,7 +26,9 @@ import {
   QrCode,
   MapPin,
   Users,
+  BarChart3,
 } from 'lucide-react';
+import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 
 interface BranchItem {
   id: string;
@@ -68,6 +70,7 @@ export const AppLayout: React.FC = () => {
     { label: 'Domicilios', path: '/delivery', icon: Truck, module: 'delivery' },
     { label: 'Para Llevar', path: '/pickup', icon: ShoppingBag, module: 'channel.pickup' },
     { label: 'Cocina KDS', path: '/kds', icon: Flame, module: 'kitchen' },
+    { label: 'Reportes & Conciliación', path: '/reports', icon: BarChart3, module: 'reporting' },
   ];
 
   const filteredNavItems = navItems.filter((item) => {
@@ -210,6 +213,7 @@ export const AppLayout: React.FC = () => {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <NetworkStatusBanner />
         {/* Mobile TopBar */}
         <header className="lg:hidden flex items-center justify-between px-4 h-16 bg-white border-b border-stone-200 shadow-sm">
           <div className="flex items-center gap-2.5">
