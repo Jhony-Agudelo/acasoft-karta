@@ -163,6 +163,15 @@ export class PublicOrderController {
     const maskedCustomer = maskCustomerSnapshot(order.customer_snapshot_json as any);
     const wasAdjusted = (order.edits?.length || 0) > 0;
 
+    // Obtener instrucciones de pago si aplica
+    const channelPolicy = await (this.prisma as any).branchChannelPolicy.findFirst({
+      where: {
+        tenant_id: order.tenant_id,
+        branch_id: order.branch_id,
+        fulfillment_type: order.fulfillment_type,
+      },
+    });
+
     return {
       order_id: order.id,
       order_code: order.order_code,
@@ -171,6 +180,7 @@ export class PublicOrderController {
       status: order.status,
       payment_policy: order.payment_policy,
       payment_status: order.payment_status,
+      payment_instructions: channelPolicy?.payment_instructions_json || null,
       subtotal_products_cop: order.subtotal_products_cop,
       delivery_fee_cop: order.delivery_fee_cop,
       tax_total_cop: order.tax_total_cop,

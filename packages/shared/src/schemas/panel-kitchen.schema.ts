@@ -10,6 +10,7 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 
 export const PaymentMethodSchema = z.enum(['CASH', 'POS_TERMINAL', 'MANUAL_TRANSFER']);
+export type OrderPaymentMethod = z.infer<typeof PaymentMethodSchema>;
 
 export const RecordManualPaymentSchema = z
   .object({

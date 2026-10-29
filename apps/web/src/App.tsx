@@ -17,6 +17,8 @@ import { StorefrontPage } from './features/public-storefront/StorefrontPage';
 import { QrResolverPage } from './features/public-storefront/QrResolverPage';
 import { PublicTrackingPage } from './features/public-tracking/PublicTrackingPage';
 import { LiteOrderPanelPage } from './features/lite-order-panel/LiteOrderPanelPage';
+import { FullOrderPanelPage } from './features/full-order-panel/FullOrderPanelPage';
+import { KitchenKdsPage } from './features/kitchen-kds/KitchenKdsPage';
 import { DeliveryZonesPage } from './features/admin-delivery/DeliveryZonesPage';
 import { CustomersDirectoryPage } from './features/admin-customers/CustomersDirectoryPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
@@ -83,6 +85,14 @@ export const App: React.FC = () => {
         <Route path="admin/delivery-zones" element={<DeliveryZonesPage />} />
         <Route path="admin/customers" element={<CustomersDirectoryPage />} />
         <Route
+          path="panel"
+          element={
+            <CapabilityRoute module="order_panel" moduleName="Panel Operativo de Pedidos">
+              <FullOrderPanelPage />
+            </CapabilityRoute>
+          }
+        />
+        <Route
           path="panel/lite"
           element={
             <CapabilityRoute module="order_panel" moduleName="Panel Liviano de Pedidos">
@@ -137,14 +147,8 @@ export const App: React.FC = () => {
         <Route
           path="kds"
           element={
-            <CapabilityRoute module="kitchen.kds" moduleName="Pantalla de Cocina (KDS)">
-              <ModulePlaceholderPage
-                title="Kitchen Display System (KDS)"
-                description="Tiempos de cocción, avance de platos y comunicación con salón."
-                moduleKey="kitchen.kds"
-                phase="Fase 03 (Cocina KDS & Barra)"
-                icon={Flame}
-              />
+            <CapabilityRoute module="kitchen" moduleName="Pantalla de Cocina (KDS)">
+              <KitchenKdsPage />
             </CapabilityRoute>
           }
         />

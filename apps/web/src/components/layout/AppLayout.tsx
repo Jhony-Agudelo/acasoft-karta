@@ -61,7 +61,7 @@ export const AppLayout: React.FC = () => {
   // Navegación modular dinámica
   const navItems = [
     { label: 'Panel Principal', path: '/dashboard', icon: LayoutDashboard, alwaysShow: true },
-    { label: 'Panel de Pedidos', path: '/panel/lite', icon: Sparkles, alwaysShow: true },
+    { label: 'Panel de Pedidos', path: '/panel', icon: Sparkles, alwaysShow: true },
     { label: 'Menú & Carta', path: '/menu', icon: BookOpen, alwaysShow: true },
     { label: 'Códigos QR', path: '/admin/qr-codes', icon: QrCode, alwaysShow: true },
     { label: 'Salón y Mesas', path: '/dining', icon: UtensilsCrossed, module: 'dining' },

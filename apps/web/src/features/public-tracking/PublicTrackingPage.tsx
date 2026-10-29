@@ -15,6 +15,9 @@ import {
   Calendar,
   AlertTriangle,
   Receipt,
+  Copy,
+  CreditCard,
+  Check,
 } from 'lucide-react';
 import { apiClient, ApiError } from '../../services/api-client';
 import { formatMoneyCop } from '@restaurante-saas/shared';
@@ -105,6 +108,7 @@ export const PublicTrackingPage: React.FC = () => {
   }>();
   const token = publicOrderToken || publicToken || '';
   const queryClient = useQueryClient();
+  const [copiedAccount, setCopiedAccount] = React.useState(false);
 
   // Consulta de datos de la orden
   const {
@@ -380,6 +384,82 @@ export const PublicTrackingPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Instrucciones de Pago / Transferencia Bancaria */}
+        {order.payment_instructions && order.payment_status !== 'NOT_TRACKED' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-orange-600" />
+                <span>Datos para Pago / Transferencia</span>
+              </h3>
+              {order.payment_status === 'PAID' ? (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  ✓ Pagado
+                </span>
+              ) : order.payment_status === 'PARTIALLY_PAID' ? (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-300">
+                  Abono Registrado
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                  Pendiente de Pago
+                </span>
+              )}
+            </div>
+
+            <div className="p-3.5 bg-gradient-to-br from-stone-50 to-orange-50/40 rounded-xl border border-stone-200/80 space-y-2 text-xs">
+              {order.payment_instructions.bank_name && (
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500">Banco / Billetera:</span>
+                  <span className="font-bold text-stone-900">{order.payment_instructions.bank_name}</span>
+                </div>
+              )}
+              {order.payment_instructions.account_holder && (
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500">Titular:</span>
+                  <span className="font-semibold text-stone-800">{order.payment_instructions.account_holder}</span>
+                </div>
+              )}
+              {order.payment_instructions.account_type && (
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500">Tipo de Cuenta:</span>
+                  <span className="text-stone-800">{order.payment_instructions.account_type}</span>
+                </div>
+              )}
+              {order.payment_instructions.account_number && (
+                <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] text-stone-400 block uppercase font-bold">Número de Cuenta / Celular</span>
+                    <span className="font-mono text-sm font-black text-stone-900 tracking-wider">
+                      {order.payment_instructions.account_number}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(order.payment_instructions.account_number);
+                      setCopiedAccount(true);
+                      setTimeout(() => setCopiedAccount(false), 2500);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs shrink-0 ${
+                      copiedAccount
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-orange-600 hover:bg-orange-700 text-white'
+                    }`}
+                  >
+                    {copiedAccount ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedAccount ? '¡Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+              )}
+              {order.payment_instructions.notes && (
+                <p className="text-[11px] text-stone-600 italic pt-1">
+                  Nota: {order.payment_instructions.notes}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Datos de Entrega Enmascarados (Habeas Data) */}
         {order.customer_snapshot && (
