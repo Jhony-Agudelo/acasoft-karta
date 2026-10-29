@@ -29,7 +29,7 @@ Por ello, se establece un **control de visibilidad y acceso en dos capas:**
 | **`TENANT_ADMIN`** | Propietario / Administrador | • Dashboard General (`/dashboard`)<br>• Panel de Pedidos (`/panel`, `/panel/lite`)<br>• Menú & Carta (`/menu`, `/admin/menu`)<br>• Códigos QR (`/admin/qr-codes`)<br>• Salón y Mesas (`/dining`)<br>• Mesas & Portamesas (`/admin/dining-tables`)<br>• Domicilios (`/delivery`)<br>• Zonas de Domicilio (`/admin/delivery-zones`)<br>• Para Llevar (`/pickup`)<br>• Cocina KDS (`/kds`)<br>• Reportes & Conciliación (`/reports`)<br>• Directorio de Clientes (`/admin/customers`)<br>• Capacidades & Perfiles (`/admin/capabilities`)<br>• Ajustes del Restaurante (`/admin/settings`) | Ninguna (Acceso Maestro) | `/dashboard` |
 | **`BRANCH_MANAGER`** | Gerente de Sucursal | • Dashboard de Sede (`/dashboard`)<br>• Panel de Pedidos (`/panel`, `/panel/lite`)<br>• Menú & Carta (`/menu`)<br>• Códigos QR (`/admin/qr-codes`)<br>• Salón y Mesas (`/dining`)<br>• Mesas & Portamesas (`/admin/dining-tables`)<br>• Domicilios (`/delivery`)<br>• Zonas de Domicilio (`/admin/delivery-zones`)<br>• Para Llevar (`/pickup`)<br>• Cocina KDS (`/kds`)<br>• Reportes de Sede (`/reports`)<br>• Directorio de Clientes (`/admin/customers`) | • Capacidades & Perfiles (`/admin/capabilities`)<br>• Ajustes de Organización / Facturación SaaS (`/admin/settings`) | `/dining` o `/dashboard` |
 | **`CASHIER`** | Cajero / Caja | • Salón y Mesas (`/dining` - pre-cuentas y cobro de mesas)<br>• Panel de Pedidos (`/panel` - cobros manuales y comanda)<br>• Menú & Carta (`/menu` - consulta de precios)<br>• Reportes & Conciliación (`/reports` - arqueo y corte de caja) | • Dashboard General (`/dashboard`)<br>• Cocina KDS (`/kds`)<br>• Códigos QR (`/admin/qr-codes`)<br>• Zonas de Domicilio (`/admin/delivery-zones`)<br>• Mesas & Portamesas (`/admin/dining-tables`)<br>• Directorio de Clientes (`/admin/customers`)<br>• Capacidades y Ajustes (`/admin/*`) | `/dining` |
-| **`WAITER`** | Mesero / Salón | • Salón y Mesas (`/dining` - plano de mesas, comandas móviles, autopedidos QR y división por persona)<br>• Menú & Carta (`/menu` - consulta de platos, precios e ingredientes) | • Dashboard (`/dashboard`)<br>• Panel de Pedidos (`/panel`)<br>• Cocina KDS (`/kds`)<br>• Reportes (`/reports`)<br>• Todos los módulos administrativos (`/admin/*`) | `/dining` |
+| **`WAITER`** | Mesero / Salón | • Salón y Mesas (`/dining` - plano de mesas en vivo, apertura de cuentas, toma de comandas móviles en mesa, confirmación de autopedidos QR y división por comensal) | • Menú & Carta (`/menu` - la carta y platos son definidos exclusivamente por la administración)<br>• Dashboard (`/dashboard`)<br>• Panel de Pedidos (`/panel`)<br>• Cocina KDS (`/kds`)<br>• Reportes (`/reports`)<br>• Todos los módulos administrativos (`/admin/*`) | `/dining` |
 | **`KITCHEN`** | Cocina / Barra | • Cocina KDS (`/kds` - pantalla táctil de preparación en tiempo real vía SSE) | • Dashboard (`/dashboard`)<br>• Salón y Mesas (`/dining`)<br>• Panel de Pedidos (`/panel`)<br>• Menú & Carta (`/menu`)<br>• Reportes (`/reports`)<br>• Todos los módulos administrativos (`/admin/*`) | `/kds` |
 | **`DISPATCH_DRIVER`** | Repartidor | • Domicilios / Despacho (`/delivery`, `/panel`) | • Salón (`/dining`), Cocina (`/kds`), Reportes (`/reports`), Ajustes (`/admin/*`) | `/panel` |
 | **`PLATFORM_ADMIN`** | Superadministrador SaaS | • Capacidades & Perfiles (`/admin/capabilities`)<br>• Ajustes Globales SaaS (`/admin/settings`)<br>• Dashboard SaaS | Operación diaria de cocina o salón salvo soporte técnico | `/admin/capabilities` |
@@ -106,7 +106,8 @@ Si el usuario intenta ingresar manualmente por barra de direcciones a una ruta n
    - Usuario `mesero@karta.co` asignado a `Sede Gourmet Zona G`.
    - Inicia sesión: aterrizaje directo en `/dining`.
    - Selector de sucursal: fijo en "Sede Gourmet Zona G" sin dropdown de cambio.
-   - Sidebar: únicamente muestra "Salón y Mesas" y "Menú & Carta".
+   - Sidebar: únicamente muestra "Salón y Mesas" (`/dining`). La opción "Menú & Carta" (`/menu`) queda completamente bloqueada y oculta para el mesero.
+   - Catálogo de comanda: el mesero cuenta con el permiso `catalog:read` para listar platos y bebidas en el modal de toma de comandas móviles (`+ Comanda`).
 2. **`TC-POST06-02` (Aislamiento de Pantalla de Cocina / KDS):**
    - Usuario `cocina@karta.co` asignado a `Sede Gourmet Zona G`.
    - Inicia sesión: aterrizaje directo en `/kds`.
@@ -121,6 +122,49 @@ Si el usuario intenta ingresar manualmente por barra de direcciones a una ruta n
    - Acceso total a todas las opciones del sistema.
    - Selector de sucursales habilitado para alternar entre "Sede Gourmet Zona G" y "Sede Usaquén".
 5. **`TC-POST06-05` (Protección contra Navegación Directa por URL):**
-   - Un mesero autenticado escribe `http://localhost:5173/admin/settings` en el navegador.
+   - Un mesero autenticado escribe `http://localhost:5173/admin/settings` o `http://localhost:5173/menu` en el navegador.
    - Es interceptado por `<RoleRoute>` y redirigido limpiamente a `/dining`.
+
+---
+
+## 6. Arquitectura del Flujo de Pedidos en Mesa y PIN de Sesión Dinámico
+
+### 6.1 ¿Por qué existe el PIN de 4 dígitos en la mesa (`table_session_pin`)?
+En establecimientos gastronómicos, los códigos QR ubicados en las mesas físicas (portamenús de acrílico o autoadhesivos) son **estáticos** (impresos de forma fija con la URL de la mesa, ej. `https://karta.co/r/karta-demo?table=M-01`).
+
+Sin un mecanismo de control de sesión dinámico ocurrirían los siguientes problemas críticos de seguridad y operación:
+1. **Pedidos fantasma externos:** Cualquier cliente que haya fotografiado el QR o guardado la URL en el navegador de su teléfono podría, desde su casa o la calle, enviar pedidos a esa mesa física.
+2. **Contaminación entre clientes consecutivos:** Si una pareja abandona la mesa 4 a las 2:00 PM y un nuevo grupo se sienta a las 2:15 PM, los comensales anteriores aún tendrían la sesión abierta en su teléfono y podrían accidentalmente agregar productos a la cuenta del nuevo grupo.
+3. **Bloqueo preventivo:** Mientras una mesa esté libre (`status: FREE`), el backend bloquea cualquier intento de pedido público con el error `TABLE_ACCOUNT_NOT_OPEN`.
+
+### 6.2 Ciclo de Vida del PIN de Sesión
+1. **Apertura de Mesa por el Personal:**
+   - Cuando los clientes llegan a la mesa, el mesero o capitán hace clic en **"Abrir Mesa"** en el plano de salón (`/dining`), ingresa el número de comensales y el backend genera un PIN criptográficamente seguro de 4 dígitos (ej. `4821`), almacenado en `dining_accounts.table_session_pin`.
+2. **Uso por parte de los Comensales (Autopedido QR):**
+   - Los comensales escanean el QR físico de la mesa.
+   - Al momento de enviar su pedido (`DINE_IN`), la aplicación web del cliente solicita el **PIN de Mesa de 4 dígitos**.
+   - El mesero proporciona verbalmente el PIN o los comensales lo consultan en la pre-cuenta impresa o pantalla de asistencia.
+   - Sin el PIN correcto, el backend rechaza la comanda pública con `403 Forbidden` (`INVALID_TABLE_PIN`).
+3. **Cierre de la Cuenta y Expiración:**
+   - Una vez que la mesa paga la cuenta y se ejecuta el cierre en caja (`status: CLOSED`), el PIN expira de inmediato.
+   - El siguiente cliente que ocupe la mesa recibirá un PIN completamente nuevo y diferente.
+
+### 6.3 Flujo del Mesero: Toma Directa de Comandas en la Mesa (`+ Comanda`)
+El mesero no requiere ingresar ningún PIN porque ya se encuentra autenticado con su rol operativo institucional (`WAITER`):
+1. **Apertura y Comanda Inmediata en 1 Paso:**
+   - Al presionar **"Abrir Mesa"**, la ventana de éxito presenta dos opciones:
+     - `Tomar Comanda Inmediatamente`: Abre directamente la interfaz de selección de platos.
+     - `Volver al Salón`: Mantiene la mesa abierta para autopedido de los comensales.
+2. **Acceso Rápido desde el Plano de Salón:**
+   - Para cualquier mesa ocupada (`OCCUPIED`), el mesero puede:
+     - Hacer clic en el botón naranja **`+ Comanda`**, o
+     - Tocar directamente sobre la tarjeta de la mesa en su tablet o pantalla móvil.
+3. **Selección de Menú y Envío:**
+   - El modal `WaiterOrderModal` consulta las categorías y productos activos mediante el permiso `catalog:read`.
+   - Permite agregar productos base o variantes, incrementar/disminuir cantidades y añadir notas de cocina (ej. *"Término 3/4, salsa aparte"*).
+   - Al pulsar **"Enviar Comanda a Cocina"**, se despacha la orden vía `POST /api/v1/accounts/:id/orders`.
+   - Se imprimen/emiten los tickets al KDS de cocina en tiempo real vía eventos SSE (`kitchen.order_created`) y se actualiza el saldo consolidado de la mesa.
+4. **Validación de Concurrencia Optimista:**
+   - La cuenta de salón maneja un contador de versión atómica (`version: Int`).
+   - Si dos meseros o un mesero y la caja interactúan simultáneamente, el sistema detecta conflictos mediante `expected_account_version` y refresca el estado sin sobrescribir información.
 

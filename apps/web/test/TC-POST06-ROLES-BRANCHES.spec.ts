@@ -7,11 +7,11 @@ import {
 
 describe('TC-POST06: Separación de Roles y Aislamiento de Sucursales', () => {
   describe('1. Matriz de Rutas Permitidas por Rol (isPathAllowedForRole)', () => {
-    it('debe permitir a WAITER únicamente acceso a Salón y Menú, bloqueando administración y KDS', () => {
+    it('debe permitir a WAITER únicamente acceso a Salón y Mesas, bloqueando menú, administración y KDS', () => {
       expect(isPathAllowedForRole('/dining', 'WAITER')).toBe(true);
-      expect(isPathAllowedForRole('/menu', 'WAITER')).toBe(true);
 
-      // Rutas bloqueadas
+      // Rutas bloqueadas (incluyendo menú/carta que es administrado exclusivamente por la gerencia)
+      expect(isPathAllowedForRole('/menu', 'WAITER')).toBe(false);
       expect(isPathAllowedForRole('/dashboard', 'WAITER')).toBe(false);
       expect(isPathAllowedForRole('/kds', 'WAITER')).toBe(false);
       expect(isPathAllowedForRole('/panel', 'WAITER')).toBe(false);

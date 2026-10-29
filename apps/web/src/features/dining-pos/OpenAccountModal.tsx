@@ -8,6 +8,7 @@ import {
   AlertCircle,
   KeyRound,
   Sparkles,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 interface OpenAccountModalProps {
@@ -16,6 +17,7 @@ interface OpenAccountModalProps {
   branchId: string;
   table: DiningTableItem | null;
   onSuccess: () => void;
+  onOpenOrderNow?: (account: any, table: DiningTableItem) => void;
 }
 
 export const OpenAccountModal: React.FC<OpenAccountModalProps> = ({
@@ -24,13 +26,17 @@ export const OpenAccountModal: React.FC<OpenAccountModalProps> = ({
   branchId,
   table,
   onSuccess,
+  onOpenOrderNow,
 }) => {
   const [guestCount, setGuestCount] = useState<number>(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAccount, setCreatedAccount] = useState<{
+    id: string;
     account_code: string;
     table_session_pin: string;
+    version: number;
+    guest_count: number;
   } | null>(null);
 
   if (!isOpen || !table) return null;
@@ -47,8 +53,11 @@ export const OpenAccountModal: React.FC<OpenAccountModalProps> = ({
       });
 
       setCreatedAccount({
+        id: res.id,
         account_code: res.account_code,
         table_session_pin: res.table_session_pin,
+        version: res.version || 1,
+        guest_count: res.guest_count || guestCount,
       });
       onSuccess();
     } catch (err: any) {
@@ -123,12 +132,31 @@ export const OpenAccountModal: React.FC<OpenAccountModalProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={handleDone}
-                className="w-full py-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-md transition"
-              >
-                Entendido y Continuar
-              </button>
+              <div className="space-y-2 pt-2">
+                {onOpenOrderNow && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const acc = createdAccount;
+                      setCreatedAccount(null);
+                      onClose();
+                      onOpenOrderNow(acc, table);
+                    }}
+                    className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 transition"
+                  >
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <span>Tomar Comanda Inmediatamente</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleDone}
+                  className="w-full py-2.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 font-bold text-xs transition"
+                >
+                  Volver al Salón
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleOpenAccount} className="space-y-6">

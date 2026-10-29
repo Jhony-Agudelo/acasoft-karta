@@ -145,13 +145,15 @@ export const DiningFloorPlanPage: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin text-orange-600' : ''}`} />
           </button>
 
-          <Link
-            to="/admin/dining-tables"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs shadow-xs transition"
-          >
-            <Sliders className="h-4 w-4 text-stone-500" />
-            <span>Configurar Áreas & Mesas</span>
-          </Link>
+          {isManager && (
+            <Link
+              to="/admin/dining-tables"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs shadow-xs transition"
+            >
+              <Sliders className="h-4 w-4 text-stone-500" />
+              <span>Configurar Áreas & Mesas</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -382,11 +384,16 @@ export const DiningFloorPlanPage: React.FC = () => {
                   return (
                     <div
                       key={table.id}
+                      onClick={() => {
+                        if (isOccupied && table.account) {
+                          setTableForOrder(table);
+                        }
+                      }}
                       className={`p-4 rounded-3xl border flex flex-col justify-between transition-all duration-200 ${
                         isFree
                           ? 'bg-white border-stone-200/90 shadow-xs hover:border-emerald-300 hover:shadow-md'
                           : isOccupied
-                            ? 'bg-gradient-to-b from-white to-amber-50/30 border-amber-300/80 shadow-md ring-1 ring-amber-400/20'
+                            ? 'bg-gradient-to-b from-white to-amber-50/30 border-amber-300/80 shadow-md ring-1 ring-amber-400/20 cursor-pointer hover:border-amber-400 hover:shadow-lg'
                             : isPendingPayment
                               ? 'bg-gradient-to-b from-white to-violet-50/40 border-violet-300/80 shadow-md ring-1 ring-violet-400/20'
                               : 'bg-white border-blue-200 shadow-xs'
@@ -446,7 +453,10 @@ export const DiningFloorPlanPage: React.FC = () => {
                         {hasPendingQr && (
                           <button
                             type="button"
-                            onClick={() => setTableForPendingQr(table)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTableForPendingQr(table);
+                            }}
                             className="w-full mt-3 p-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-extrabold text-[11px] flex items-center justify-between transition animate-pulse"
                           >
                             <span className="flex items-center gap-1.5">
@@ -511,7 +521,10 @@ export const DiningFloorPlanPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => setTableForOrder(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTableForOrder(table);
+                                }}
                                 className="py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-[11px] border border-orange-200 transition"
                               >
                                 + Comanda
@@ -519,7 +532,10 @@ export const DiningFloorPlanPage: React.FC = () => {
 
                               <button
                                 type="button"
-                                onClick={() => setTableForBill(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTableForBill(table);
+                                }}
                                 className="py-2 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold text-[11px] border border-violet-200 transition"
                               >
                                 Pre-Cuenta
@@ -529,7 +545,10 @@ export const DiningFloorPlanPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => setTableForSplit(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTableForSplit(table);
+                                }}
                                 className="py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-600 font-bold text-[10px] border border-stone-200 flex items-center justify-center gap-1 transition"
                                 title="División informativa por persona"
                               >
@@ -539,7 +558,10 @@ export const DiningFloorPlanPage: React.FC = () => {
 
                               <button
                                 type="button"
-                                onClick={() => setTableForTransfer(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTableForTransfer(table);
+                                }}
                                 className="py-1.5 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-600 font-bold text-[10px] border border-stone-200 flex items-center justify-center gap-1 transition"
                                 title="Trasladar a otra mesa libre"
                               >
@@ -568,6 +590,26 @@ export const DiningFloorPlanPage: React.FC = () => {
           table={tableToOpen}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['dining-table-plan', currentBranchId] });
+          }}
+          onOpenOrderNow={(account, openedTable) => {
+            queryClient.invalidateQueries({ queryKey: ['dining-table-plan', currentBranchId] });
+            setTableToOpen(null);
+            setTableForOrder({
+              ...openedTable,
+              status: 'OCCUPIED',
+              account: {
+                id: account.id,
+                account_code: account.account_code,
+                guest_count: account.guest_count,
+                table_session_pin: account.table_session_pin,
+                orders_count: 0,
+                grand_total_cop: 0,
+                paid_total_cop: 0,
+                pending_balance_cop: 0,
+                version: account.version || 1,
+                opened_at: new Date().toISOString(),
+              },
+            });
           }}
         />
       )}
