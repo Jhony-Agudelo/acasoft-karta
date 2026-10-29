@@ -168,3 +168,23 @@ El mesero no requiere ingresar ningún PIN porque ya se encuentra autenticado co
    - La cuenta de salón maneja un contador de versión atómica (`version: Int`).
    - Si dos meseros o un mesero y la caja interactúan simultáneamente, el sistema detecta conflictos mediante `expected_account_version` y refresca el estado sin sobrescribir información.
 
+---
+
+### 6.4 Gestión de Portamesas QR Físicos, Previsualización e Impresión Limpia
+
+Para evitar que la opción de impresión capture toda la interfaz administrativa del sistema (problema identificado donde se imprimía la cuadrícula del panel sin el código QR):
+
+1. **Auto-generación Defensiva de Códigos QR de Mesa (`dining.service.ts`):**
+   - En `listTablesAdmin`, el backend verifica que cada mesa física cuente con un registro en `qr_code_links` con `target_type: 'DINING_TABLE'`.
+   - Si una mesa carece de enlace QR activo, el sistema genera automáticamente un token opaco criptográfico de 256 bits (`randomBytes(32).toString('hex')`) y lo vincula a la mesa.
+2. **Modal Interactivo de Portamesas (`DiningAdminSettings.tsx`):**
+   - Al hacer clic en **"Portamesa"** desde la pestaña de mesas o en **"Ver & Imprimir Portamesa"** desde la pestaña de portamesas:
+     - Se abre un modal emergente que previsualiza el diseño exacto del acrílico físico (10x15 cm).
+     - Incluye el logo de la marca, nombre del ambiente, número grande de mesa (ej. *Mesa M-01*), código QR en alta definición, instrucciones para el comensal y la URL pública de respaldo.
+3. **Aislamiento en Estilos de Impresión (`@media print`):**
+   - Se incorporó una regla CSS `@media print` dedicada que oculta el 100 % de la aplicación web (`body * { visibility: hidden }`) y centra exclusivamente la tarjeta del portamesa (`#printable-table-stand { visibility: visible }`).
+   - Al seleccionar *"Guardar como PDF"* o enviar a la impresora, el documento resultante contiene únicamente el soporte acrílico de la mesa seleccionada, con bordes de corte delimitados.
+4. **Descarga de Alta Resolución en PNG (1200 x 1600 px):**
+   - Se añadió la opción de descarga directa en formato PNG con canvas de alta definición, permitiendo enviar el archivo a imprentas o talleres de acrílico sin depender del cuadro de diálogo del navegador.
+
+
