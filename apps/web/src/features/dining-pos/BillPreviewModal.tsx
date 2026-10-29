@@ -5,6 +5,7 @@ import { formatMoneyCop } from '@restaurante-saas/shared';
 import {
   printThermalContent,
   formatDiningPreCuentaText,
+  formatDiningPaymentReceiptText,
 } from '../../services/print-receipt';
 import { useBrandStore } from '../../stores/brand.store';
 import { useAuthStore } from '../../stores/auth.store';
@@ -75,6 +76,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
   const [cashReceivedCop, setCashReceivedCop] = useState<number | ''>('');
   const [paymentReference, setPaymentReference] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [lastPaymentInfo, setLastPaymentInfo] = useState<any | null>(null);
 
   // Formulario de Cierre Especial
   const [showSpecialClose, setShowSpecialClose] = useState(false);
@@ -179,21 +181,30 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
         },
       );
 
+      const record = {
+        id: res.payment?.id || idempotencyKey,
+        method: paymentMethod,
+        amountCop: paymentAmountCop,
+        cashReceivedCop: typeof cashReceivedCop === 'number' ? cashReceivedCop : null,
+        cashChangeCop: cashChangeCop,
+        reference: paymentReference.trim() || null,
+        paidAt: new Date(),
+        isClosed: res.account?.status === 'CLOSED',
+      };
+      setLastPaymentInfo(record);
+
       setPaymentReference('');
       setCashReceivedCop('');
 
       if (res.account?.status === 'CLOSED') {
         setFeedback({
           type: 'success',
-          message: '¡Cuenta pagada al 100%! La cuenta ha sido cerrada y la mesa liberada.',
+          message: `¡Mesa ${tableCode} pagada al 100%! La cuenta ha sido cerrada. Puedes imprimir el comprobante de pago abajo.`,
         });
-        setTimeout(() => {
-          onClose();
-        }, 1500);
       } else {
         setFeedback({
           type: 'success',
-          message: 'Pago registrado exitosamente.',
+          message: `Abono de ${formatMoneyCop(paymentAmountCop)} registrado exitosamente para Mesa ${tableCode}.`,
         });
       }
 
@@ -273,13 +284,25 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     }
   };
 
+  // Helper para extraer nombre y variante real del producto
+  const getItemDisplayName = (it: any): string => {
+    const snap = it.product_snapshot_json as any;
+    const baseName =
+      snap?.product_name ||
+      snap?.name ||
+      it.product_name ||
+      'Producto';
+    const variant = snap?.variant_name ? ` (${snap.variant_name})` : '';
+    return `${baseName}${variant}`;
+  };
+
   // Imprimir pre-cuenta térmica
   const handlePrintPreCuenta = () => {
     if (!account) return;
 
     const allItems = account.orders.flatMap((o) =>
       o.items.map((i) => ({
-        name: (i.product_snapshot_json as any)?.name || 'Producto',
+        name: getItemDisplayName(i),
         quantity: i.quantity,
         unitPriceCop: i.unit_price_cop,
         lineTotalCop: i.line_total_cop,
@@ -305,6 +328,50 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
         amountCop: p.amount_cop,
         reference: p.reference,
       })),
+    });
+
+    printThermalContent({ content: receiptContent, width: '80mm' });
+  };
+
+  // Imprimir comprobante de pago formal en caja
+  const handlePrintPaymentReceipt = (payment: any) => {
+    if (!account) return;
+
+    const allItems = account.orders.flatMap((o) =>
+      o.items.map((i) => ({
+        name: getItemDisplayName(i),
+        quantity: i.quantity,
+        unitPriceCop: i.unit_price_cop,
+        lineTotalCop: i.line_total_cop,
+        notes: i.notes,
+      })),
+    );
+
+    const paymentAmount = payment.amountCop ?? payment.amount_cop ?? 0;
+    const paidAt = payment.paidAt || payment.created_at || new Date();
+
+    const receiptContent = formatDiningPaymentReceiptText({
+      restaurantName: settings.display_name || 'Karta Bistro',
+      branchName: 'Sede Principal',
+      tableCode: tableCode,
+      accountCode: account.account_code,
+      cashierName: user?.name || 'Cajero Salón',
+      paidAt,
+      items: allItems,
+      subtotalProductsCop: account.subtotal_products_cop,
+      discountTotalCop: account.discount_total_cop,
+      tipCop: account.tip_cop,
+      grandTotalCop: account.grand_total_cop,
+      payment: {
+        method: payment.method,
+        amountCop: paymentAmount,
+        cashReceivedCop: payment.cashReceivedCop ?? payment.cash_received_cop,
+        cashChangeCop: payment.cashChangeCop ?? payment.cash_change_cop,
+        reference: payment.reference,
+      },
+      totalPaidCop: account.paid_total_cop,
+      pendingBalanceCop: Math.max(0, account.grand_total_cop - account.paid_total_cop),
+      isClosed: account.status === 'CLOSED' || account.paid_total_cop >= account.grand_total_cop,
     });
 
     printThermalContent({ content: receiptContent, width: '80mm' });
@@ -361,6 +428,18 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
               <Printer className="h-4 w-4 text-stone-500" />
               <span className="hidden sm:inline">Imprimir Pre-cuenta</span>
             </button>
+
+            {account && account.payments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handlePrintPaymentReceipt(account.payments[account.payments.length - 1])}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 font-bold text-xs shadow-xs transition"
+                title="Imprimir Último Comprobante de Pago en Caja"
+              >
+                <Printer className="h-4 w-4 text-emerald-600" />
+                <span className="hidden sm:inline">Comprobante de Caja</span>
+              </button>
+            )}
 
             <button
               onClick={onClose}
@@ -450,24 +529,38 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 pt-1">
+                    <div className="space-y-2 pt-1 divide-y divide-stone-100">
                       {ord.items.map((it) => (
                         <div
                           key={it.id}
-                          className="flex items-center justify-between text-xs"
+                          className="flex items-start justify-between text-xs pt-1.5"
                         >
-                          <span className="text-stone-800 font-medium">
-                            <span className="font-bold text-stone-900 mr-1.5">
-                              {it.quantity}x
-                            </span>
-                            {(it.product_snapshot_json as any)?.name || 'Producto'}
-                            {it.notes && (
-                              <span className="text-[10px] text-amber-600 ml-1.5 italic">
-                                ({it.notes})
+                          <div className="flex-1 min-w-0 pr-2">
+                            <span className="text-stone-800 font-medium">
+                              <span className="font-bold text-stone-900 mr-1.5">
+                                {it.quantity}x
                               </span>
+                              <strong className="text-stone-900">{getItemDisplayName(it)}</strong>
+                            </span>
+                            {Array.isArray((it as any).modifiers_snapshot_json) && (it as any).modifiers_snapshot_json.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(it as any).modifiers_snapshot_json.map((m: any, mIdx: number) => (
+                                  <span
+                                    key={mIdx}
+                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200"
+                                  >
+                                    + {m.option_name || m.name}
+                                  </span>
+                                ))}
+                              </div>
                             )}
-                          </span>
-                          <span className="font-mono font-bold text-stone-900">
+                            {it.notes && (
+                              <p className="text-[10px] text-amber-700 italic mt-0.5">
+                                Nota: {it.notes}
+                              </p>
+                            )}
+                          </div>
+                          <span className="font-mono font-bold text-stone-900 shrink-0">
                             {formatMoneyCop(it.line_total_cop)}
                           </span>
                         </div>
@@ -606,7 +699,12 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                     >
                       <div>
                         <div className="font-extrabold text-stone-800">
-                          {p.method} — {formatMoneyCop(p.amount_cop)}
+                          {p.method === 'CASH'
+                            ? 'Efectivo'
+                            : p.method === 'POS_TERMINAL'
+                              ? 'Datáfono'
+                              : 'Transferencia'}{' '}
+                          — {formatMoneyCop(p.amount_cop)}
                         </div>
                         {p.reference && (
                           <div className="text-[10px] text-stone-400">
@@ -615,17 +713,104 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                         )}
                       </div>
 
-                      {isManager && account.status !== 'CLOSED' && (
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handleVoidPayment(p.id)}
-                          className="text-[10px] font-bold text-rose-600 hover:underline p-1 rounded hover:bg-rose-50"
+                          onClick={() => handlePrintPaymentReceipt(p)}
+                          className="p-1.5 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-100 border border-stone-200 transition"
+                          title="Imprimir Comprobante de Pago Térmico"
                         >
-                          Anular
+                          <Printer className="h-3.5 w-3.5 text-stone-600" />
                         </button>
-                      )}
+
+                        {isManager && account.status !== 'CLOSED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleVoidPayment(p.id)}
+                            className="text-[10px] font-bold text-rose-600 hover:underline p-1 rounded hover:bg-rose-50"
+                          >
+                            Anular
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Tarjeta de Confirmación e Impresión del Último Pago Registrado */}
+              {lastPaymentInfo && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 space-y-3 animate-slide-up shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-800">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      <span className="font-black text-xs">
+                        ¡Pago de Mesa {tableCode} Registrado!
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLastPaymentInfo(null)}
+                      className="text-stone-400 hover:text-stone-700 p-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-xl border border-emerald-200 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 font-bold">Mesa:</span>
+                      <span className="font-extrabold text-stone-900">Mesa {tableCode}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 font-bold">Cuenta:</span>
+                      <span className="font-mono text-stone-700">{account?.account_code}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500 font-bold">Monto Cobrado:</span>
+                      <span className="font-mono font-black text-emerald-700">
+                        {formatMoneyCop(lastPaymentInfo.amountCop)}
+                      </span>
+                    </div>
+                    {lastPaymentInfo.cashReceivedCop && (
+                      <>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-stone-500">Recibido:</span>
+                          <span className="font-mono text-stone-800">
+                            {formatMoneyCop(lastPaymentInfo.cashReceivedCop)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-stone-500">Cambio a devolver:</span>
+                          <span className="font-mono font-bold text-emerald-700">
+                            {formatMoneyCop(lastPaymentInfo.cashChangeCop || 0)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePrintPaymentReceipt(lastPaymentInfo)}
+                      className="py-2.5 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Imprimir Recibo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLastPaymentInfo(null);
+                        if (account?.status === 'CLOSED') onClose();
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center justify-center"
+                    >
+                      <span>{account?.status === 'CLOSED' ? 'Finalizar y Cerrar' : 'Continuar'}</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -636,10 +821,41 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                     onSubmit={handleRecordPayment}
                     className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-xs space-y-3"
                   >
-                    <h5 className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
-                      <Banknote className="h-4 w-4 text-emerald-600" />
-                      <span>Registrar Cobro en Caja</span>
-                    </h5>
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-extrabold text-stone-900 text-xs flex items-center gap-1.5">
+                        <Banknote className="h-4 w-4 text-emerald-600" />
+                        <span>Registrar Cobro en Caja</span>
+                      </h5>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-800">
+                        Mesa {tableCode}
+                      </span>
+                    </div>
+
+                    {/* Resumen contextual de mesa y productos a liquidar */}
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-stone-600">
+                        <span>Cuenta:</span>
+                        <span className="font-mono text-stone-800">{account?.account_code}</span>
+                      </div>
+                      <div className="border-t border-stone-200/60 pt-1.5 space-y-1">
+                        <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
+                          Productos a liquidar:
+                        </span>
+                        <div className="max-h-24 overflow-y-auto divide-y divide-stone-100 pr-1">
+                          {account?.orders.flatMap((o) => o.items).map((it) => (
+                            <div key={it.id} className="flex items-center justify-between py-0.5 text-[11px]">
+                              <span className="text-stone-700 truncate max-w-[170px]">
+                                <span className="font-bold text-stone-900 mr-1">{it.quantity}x</span>
+                                {getItemDisplayName(it)}
+                              </span>
+                              <span className="font-mono font-bold text-stone-800">
+                                {formatMoneyCop(it.line_total_cop)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Método */}
                     <div className="grid grid-cols-3 gap-1.5">
@@ -729,11 +945,14 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                     <button
                       type="submit"
                       disabled={isSubmittingPayment || paymentAmountCop <= 0}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                      className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
-                      {isSubmittingPayment
-                        ? 'Procesando pago...'
-                        : `Cobrar ${formatMoneyCop(paymentAmountCop)}`}
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>
+                        {isSubmittingPayment
+                          ? 'Procesando pago...'
+                          : `Cobrar Mesa ${tableCode} — ${formatMoneyCop(paymentAmountCop)}`}
+                      </span>
                     </button>
                   </form>
                 ) : (

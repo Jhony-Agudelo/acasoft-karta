@@ -534,7 +534,10 @@ export class CreatePublicOrderService {
         orderItemsData.push({
           tenant_id: tenantId,
           product_id: product.id,
-          product_snapshot_json: productSnapshot as any,
+          product_snapshot_json: {
+            ...productSnapshot,
+            name: product.name,
+          } as any,
           quantity: itemDto.quantity,
           unit_price_cop: linePricing.effective_unit_price_cop,
           discount_cop: 0,

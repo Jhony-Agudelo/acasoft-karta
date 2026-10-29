@@ -355,3 +355,4 @@ export function downloadPortamesaPng(table: StandTableInfo, brandName: string = 
 
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(qrSvgString)));
 }
+

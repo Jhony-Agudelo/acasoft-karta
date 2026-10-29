@@ -252,7 +252,7 @@ export function formatDiningPreCuentaText(
   data: DiningPreCuentaData,
   options: { width: '58mm' | '80mm' } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 42;
+  const cols = options.width === '58mm' ? 32 : 40;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 
@@ -281,7 +281,10 @@ export function formatDiningPreCuentaText(
 
   const line2 = (left: string, right: string): string => {
     const space = cols - left.length - right.length;
-    if (space <= 0) return `${left.slice(0, Math.max(0, cols - right.length - 1))} ${right}`;
+    if (space <= 0) {
+      const maxLeft = Math.max(0, cols - right.length - 2);
+      return `${left.slice(0, maxLeft)}.. ${right}`;
+    }
     return left + ' '.repeat(space) + right;
   };
 
@@ -372,6 +375,175 @@ export function formatDiningPreCuentaText(
   lines.push('');
   lines.push(center('¡GRACIAS POR SU VISITA!'));
   lines.push('\n\n\n'); // Espacio para corte
+
+  return lines.join('\n');
+}
+
+export interface DiningPaymentReceiptData {
+  restaurantName: string;
+  branchName: string;
+  branchAddress?: string | null;
+  branchPhone?: string | null;
+  tableCode: string;
+  accountCode: string;
+  cashierName?: string | null;
+  paidAt: string | Date;
+  items: DiningPreCuentaItem[];
+  subtotalProductsCop: number;
+  discountTotalCop?: number;
+  tipCop?: number;
+  grandTotalCop: number;
+  payment: {
+    method: string;
+    amountCop: number;
+    cashReceivedCop?: number | null;
+    cashChangeCop?: number | null;
+    reference?: string | null;
+  };
+  totalPaidCop: number;
+  pendingBalanceCop: number;
+  isClosed: boolean;
+}
+
+/**
+ * Genera el ticket térmico formal de COMPROBANTE DE PAGO EN CAJA para mesa de salón.
+ * Indica explícitamente la Mesa, la Cuenta, el Cajero, el desglose de productos pagados,
+ * el medio de pago, dinero recibido, cambio devuelto y saldo final.
+ */
+export function formatDiningPaymentReceiptText(
+  data: DiningPaymentReceiptData,
+  options: { width: '58mm' | '80mm' } = { width: '80mm' },
+): string {
+  const cols = options.width === '58mm' ? 32 : 40;
+  const separator = '-'.repeat(cols);
+  const doubleSeparator = '='.repeat(cols);
+
+  const center = (text: string): string => {
+    if (text.length >= cols) return text;
+    const leftPad = Math.floor((cols - text.length) / 2);
+    return ' '.repeat(leftPad) + text;
+  };
+
+  const wrapText = (text: string): string[] => {
+    const words = text.split(' ');
+    const wrapped: string[] = [];
+    let current = '';
+
+    for (const word of words) {
+      if ((current + (current ? ' ' : '') + word).length <= cols) {
+        current += (current ? ' ' : '') + word;
+      } else {
+        if (current) wrapped.push(center(current));
+        current = word;
+      }
+    }
+    if (current) wrapped.push(center(current));
+    return wrapped;
+  };
+
+  const line2 = (left: string, right: string): string => {
+    const space = cols - left.length - right.length;
+    if (space <= 0) {
+      const maxLeft = Math.max(0, cols - right.length - 2);
+      return `${left.slice(0, maxLeft)}.. ${right}`;
+    }
+    return left + ' '.repeat(space) + right;
+  };
+
+  const lines: string[] = [];
+
+  // Encabezado
+  lines.push(center(data.restaurantName.toUpperCase()));
+  lines.push(center(data.branchName));
+  if (data.branchAddress) lines.push(center(data.branchAddress));
+  if (data.branchPhone) lines.push(center(`Tel: ${data.branchPhone}`));
+  lines.push(doubleSeparator);
+  lines.push(center('*** COMPROBANTE DE PAGO ***'));
+  lines.push(center('CAJA DE SALÓN'));
+  lines.push(doubleSeparator);
+
+  // Mesa, Cuenta y Auditoría de Caja
+  lines.push(line2(`MESA: ${data.tableCode}`, `CUENTA: ${data.accountCode}`));
+  if (data.cashierName) {
+    lines.push(line2('Cajero:', data.cashierName));
+  }
+  const dateStr =
+    typeof data.paidAt === 'string'
+      ? new Date(data.paidAt).toLocaleString('es-CO')
+      : data.paidAt.toLocaleString('es-CO');
+  lines.push(line2('Fecha Pago:', dateStr));
+  lines.push(separator);
+
+  // Detalle de ítems pagados
+  lines.push(line2('CANT  DESCRIPCIÓN', 'VALOR'));
+  lines.push(separator);
+
+  for (const item of data.items) {
+    const itemHeader = `${item.quantity}x ${item.name}`;
+    lines.push(line2(itemHeader, formatMoneyCop(item.lineTotalCop)));
+    if (item.notes) {
+      lines.push(`  * ${item.notes}`);
+    }
+  }
+
+  lines.push(separator);
+
+  // Subtotales y Descuentos
+  lines.push(line2('Subtotal Productos:', formatMoneyCop(data.subtotalProductsCop)));
+
+  if (data.discountTotalCop && data.discountTotalCop > 0) {
+    lines.push(line2('Descuento:', `-${formatMoneyCop(data.discountTotalCop)}`));
+  }
+
+  if (data.tipCop && data.tipCop > 0) {
+    lines.push(line2('Propina Vol. (Ley 1935):', formatMoneyCop(data.tipCop)));
+  }
+
+  lines.push(doubleSeparator);
+  lines.push(line2('TOTAL LIQUIDADO:', formatMoneyCop(data.grandTotalCop)));
+  lines.push(doubleSeparator);
+
+  // Detalle del Cobro Registrado
+  const methodLabel =
+    data.payment.method === 'CASH'
+      ? 'EFECTIVO'
+      : data.payment.method === 'POS_TERMINAL'
+        ? 'DATÁFONO / TARJETA'
+        : data.payment.method === 'MANUAL_TRANSFER'
+          ? 'TRANSFERENCIA BANCARIA'
+          : data.payment.method;
+
+  lines.push(line2('MEDIO DE PAGO:', methodLabel));
+  lines.push(line2('VALOR COBRADO:', formatMoneyCop(data.payment.amountCop)));
+
+  if (data.payment.cashReceivedCop && data.payment.cashReceivedCop > 0) {
+    lines.push(line2('Efectivo Recibido:', formatMoneyCop(data.payment.cashReceivedCop)));
+    const change = data.payment.cashChangeCop ?? Math.max(0, data.payment.cashReceivedCop - data.payment.amountCop);
+    lines.push(line2('Cambio / Vueltas:', formatMoneyCop(change)));
+  }
+
+  if (data.payment.reference) {
+    lines.push(line2('Ref / Voucher:', data.payment.reference));
+  }
+
+  lines.push(separator);
+
+  // Estado de la cuenta y saldo
+  if (data.isClosed) {
+    lines.push(line2('ESTADO DE MESA:', 'PAGADA Y CERRADA'));
+    lines.push(line2('SALDO PENDIENTE:', '$ 0'));
+  } else {
+    lines.push(line2('Total Pagado Acumulado:', formatMoneyCop(data.totalPaidCop)));
+    lines.push(line2('SALDO RESTANTE:', formatMoneyCop(data.pendingBalanceCop)));
+  }
+
+  lines.push(doubleSeparator);
+
+  // Leyenda fiscal
+  lines.push(...wrapText(DIAN_DINING_DISCLAIMER));
+  lines.push('');
+  lines.push(center('¡GRACIAS POR SU VISITA!'));
+  lines.push('\n\n\n'); // Espacio para corte térmico
 
   return lines.join('\n');
 }

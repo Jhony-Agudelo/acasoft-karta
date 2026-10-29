@@ -6,6 +6,8 @@ import {
   DiningPreCuentaData,
   DiningPreCuentaItem,
   DiningPreCuentaDiner,
+  formatDiningPaymentReceiptText,
+  DiningPaymentReceiptData,
 } from '@restaurante-saas/shared';
 
 export {
@@ -13,6 +15,8 @@ export {
   type DiningPreCuentaData,
   type DiningPreCuentaItem,
   type DiningPreCuentaDiner,
+  formatDiningPaymentReceiptText,
+  type DiningPaymentReceiptData,
 };
 
 
@@ -67,15 +71,19 @@ export function printThermalContent(options: PrintReceiptOptions): void {
               padding: 0;
               background: #fff;
               color: #000;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
           }
           body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: ${width === '58mm' ? '11px' : '12px'};
+            font-size: ${width === '58mm' ? '10px' : '11px'};
             line-height: 1.25;
-            white-space: pre-wrap;
-            word-break: break-all;
-            padding: 8px 4px;
+            white-space: pre;
+            overflow-x: hidden;
+            word-break: normal;
+            overflow-wrap: normal;
+            padding: 6px 4px;
             margin: 0;
           }
         </style>

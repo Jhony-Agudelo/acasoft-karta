@@ -601,6 +601,7 @@ export class DiningService {
           product_id: product.id,
           product_snapshot_json: {
             name: product.name,
+            product_name: product.name,
             variant_name: selectedVariantName,
           },
           quantity: itemDto.quantity,
@@ -974,7 +975,10 @@ export class DiningService {
       o.items.map((i) => ({
         id: i.id,
         line_total_cop: i.line_total_cop,
-        product_name: (i.product_snapshot_json as any)?.name,
+        product_name:
+          (i.product_snapshot_json as any)?.product_name ||
+          (i.product_snapshot_json as any)?.name ||
+          'Producto',
       })),
     );
 
@@ -1057,7 +1061,10 @@ export class DiningService {
         o.items.map((i) => ({
           id: i.id,
           line_total_cop: i.line_total_cop,
-          product_name: (i.product_snapshot_json as any)?.name,
+          product_name:
+            (i.product_snapshot_json as any)?.product_name ||
+            (i.product_snapshot_json as any)?.name ||
+            'Producto',
         })),
       );
 

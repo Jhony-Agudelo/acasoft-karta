@@ -188,16 +188,14 @@ export const LiteOrderPanelPage: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Indicador SSE */}
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${
-              isConnected
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${isConnected
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
-            }`}
+              }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-              }`}
+              className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
             />
             <span>{isConnected ? 'En vivo (SSE)' : 'Reconectando...'}</span>
           </div>
@@ -206,11 +204,10 @@ export const LiteOrderPanelPage: React.FC = () => {
           <button
             onClick={toggleSound}
             title={isSoundMuted ? 'Activar timbre sonoro' : 'Silenciar timbre sonoro'}
-            className={`p-2 rounded-xl border transition-colors ${
-              isSoundMuted
+            className={`p-2 rounded-xl border transition-colors ${isSoundMuted
                 ? 'border-stone-200 bg-stone-50 text-stone-400 hover:text-stone-700'
                 : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-            }`}
+              }`}
           >
             {isSoundMuted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
           </button>
@@ -308,11 +305,10 @@ export const LiteOrderPanelPage: React.FC = () => {
                             {order.order_code}
                           </span>
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                              isPickup
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${isPickup
                                 ? 'bg-purple-100 text-purple-800'
                                 : 'bg-blue-100 text-blue-800'
-                            }`}
+                              }`}
                           >
                             {isPickup ? '🛍️ Recoger' : '🛵 Domicilio'}
                           </span>
@@ -518,11 +514,10 @@ export const LiteOrderPanelPage: React.FC = () => {
                       </span>
                       <button
                         onClick={() => handleCopyLink(order)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
-                          copiedOrderId === order.id
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${copiedOrderId === order.id
                             ? 'bg-emerald-600 text-white'
                             : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
+                          }`}
                       >
                         <Copy className="w-3.5 h-3.5" />
                         <span>{copiedOrderId === order.id ? '¡Copiado!' : 'Copiar mensaje con link'}</span>

@@ -48,21 +48,29 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
     if (ticketType === 'KITCHEN') {
       const items = (order.items || []).map((it: any) => {
         const snap = it.product_snapshot_json || {};
-        const mods = (it.modifiers_snapshot_json || []).map((m: any) => m.name || m.option_name);
+        const pName = snap.product_name || snap.name || it.product_name || it.name || 'Producto';
+        const variant = snap.variant_name ? ` (${snap.variant_name})` : '';
+        const mods = (it.modifiers_snapshot_json || []).map((m: any) => m.option_name || m.name);
         return {
-          name: snap.name || it.name || 'Producto',
+          name: `${pName}${variant}`,
           quantity: it.quantity || 1,
           notes: it.notes,
           modifiers: mods,
         };
       });
 
+      const tableLabel =
+        order.table?.code ? `Mesa ${order.table.code}` :
+        order.table_code ? `Mesa ${order.table_code}` :
+        order.table_label ||
+        (order.table_id ? `Mesa #${order.table_id.slice(0, 4)}` : null);
+
       return formatKitchenTicketText(
         {
           order_code: order.order_code,
           fulfillment_type: order.fulfillment_type,
           created_at: order.created_at,
-          table_label: order.table_id ? `Mesa #${order.table_id.slice(0, 4)}` : null,
+          table_label: tableLabel,
           delivery_address: order.customer_snapshot_json?.delivery_address,
           notes: order.notes,
           items,
@@ -76,6 +84,12 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
     const paidTotal = order.paid_total_cop || 0;
     const grandTotal = order.grand_total_cop || 0;
 
+    const tableName =
+      order.table?.code ? `Mesa ${order.table.code}` :
+      order.table_code ? `Mesa ${order.table_code}` :
+      order.table_label ||
+      (order.table_id ? `Mesa #${order.table_id.slice(0, 4)}` : undefined);
+
     const receiptData: ThermalReceiptData = {
       restaurantName,
       branchName,
@@ -83,11 +97,13 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
       createdAt: order.created_at,
       origin: order.origin || 'WHATSAPP',
       fulfillmentType: order.fulfillment_type,
-      tableName: order.table_id ? `Mesa #${order.table_id.slice(0, 4)}` : undefined,
+      tableName,
       items: (order.items || []).map((it: any) => {
         const snap = it.product_snapshot_json || {};
+        const pName = snap.product_name || snap.name || it.product_name || it.name || 'Producto';
+        const variant = snap.variant_name ? ` (${snap.variant_name})` : '';
         return {
-          name: snap.name || it.name || 'Producto',
+          name: `${pName}${variant}`,
           quantity: it.quantity || 1,
           lineTotalCop: it.line_total_cop || 0,
           unitPriceCop: it.unit_price_cop || 0,
