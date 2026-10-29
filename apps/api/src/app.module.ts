@@ -17,6 +17,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { BillingSubscriptionModule } from './modules/billing-subscription/billing-subscription.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -47,6 +48,7 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     PaymentsModule,
     KitchenModule,
     BillingSubscriptionModule,
+    ReportingModule,
   ],
   providers: [
     {

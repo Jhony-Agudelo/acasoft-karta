@@ -200,6 +200,12 @@ export class BillingSubscriptionService {
         },
       });
 
+      // 6. Consultar facturas para retornar el DTO completo
+      const allInvoices = await tx.subscriptionInvoice.findMany({
+        where: { tenant_id: targetTenantId },
+        orderBy: { issued_at: 'desc' },
+      });
+
       return {
         id: sub.id,
         tenant_id: sub.tenant_id,
@@ -207,7 +213,18 @@ export class BillingSubscriptionService {
         status: sub.status as SubscriptionStatus,
         current_period_start: sub.current_period_start.toISOString(),
         current_period_end: sub.current_period_end.toISOString(),
+        updated_at: sub.updated_at.toISOString(),
         invoice: createdInvoice,
+        invoices: allInvoices.map((inv) => ({
+          id: inv.id,
+          invoice_code: inv.invoice_code,
+          plan_id: inv.plan_id,
+          amount_cop: inv.amount_cop,
+          status: inv.status,
+          payment_reference_note: inv.payment_reference_note,
+          issued_at: inv.issued_at.toISOString(),
+        })),
+        entitled_modules: [...(PLAN_ENTITLEMENTS[sub.plan_id] || [])],
       };
     });
   }
