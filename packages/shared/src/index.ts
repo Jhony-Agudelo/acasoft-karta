@@ -17,3 +17,6 @@ export * from './utils/pii-masker';
 export * from './constants/payment-status.machine';
 export * from './utils/kitchen-aggregation';
 export * from './schemas/panel-kitchen.schema';
+export * from './utils/reporting-reconciliation.calculator';
+export * from './utils/thermal-receipt.formatter';
+export * from './schemas/reporting-subscription.schema';
