@@ -43,53 +43,41 @@ export class OpenOperationsChecker {
     }
 
     if (moduleKey === 'kitchen') {
-      try {
-        const preparingOrders: any[] = await this.prisma.$queryRaw`
-          SELECT id FROM orders 
-          WHERE tenant_id = ${tenantId}::uuid 
-            AND status = 'PREPARING'
-            AND (${branchId}::uuid IS NULL OR branch_id = ${branchId}::uuid)
-          LIMIT 1
-        `;
+      const preparingOrder = await this.prisma.order.findFirst({
+        where: {
+          tenant_id: tenantId,
+          status: 'PREPARING',
+          ...(branchId ? { branch_id: branchId } : {}),
+        },
+        select: { id: true, order_code: true },
+      });
 
-        if (preparingOrders && preparingOrders.length > 0) {
-          throw new ConflictException({
-            errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
-            moduleKey: 'kitchen',
-            message:
-              'No se puede desactivar la pantalla de cocina mientras existan comandas en preparación.',
-          });
-        }
-      } catch (e: any) {
-        if (e.response?.errorCode === 'MODULE_HAS_OPEN_OPERATIONS') {
-          throw e;
-        }
+      if (preparingOrder) {
+        throw new ConflictException({
+          errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
+          moduleKey: 'kitchen',
+          message: `No se puede desactivar la pantalla de cocina mientras existan comandas en preparación (ej. ${preparingOrder.order_code}).`,
+        });
       }
     }
 
     if (moduleKey === 'payments.manual') {
-      try {
-        const unpaidOrders: any[] = await this.prisma.$queryRaw`
-          SELECT id FROM orders 
-          WHERE tenant_id = ${tenantId}::uuid 
-            AND payment_status IN ('UNPAID', 'PARTIALLY_PAID')
-            AND status NOT IN ('REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED')
-            AND (${branchId}::uuid IS NULL OR branch_id = ${branchId}::uuid)
-          LIMIT 1
-        `;
+      const unpaidOrder = await this.prisma.order.findFirst({
+        where: {
+          tenant_id: tenantId,
+          payment_status: { in: ['UNPAID', 'PARTIALLY_PAID'] },
+          status: { notIn: ['REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'] },
+          ...(branchId ? { branch_id: branchId } : {}),
+        },
+        select: { id: true, order_code: true },
+      });
 
-        if (unpaidOrders && unpaidOrders.length > 0) {
-          throw new ConflictException({
-            errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
-            moduleKey: 'payments.manual',
-            message:
-              'No se puede desactivar el registro de pagos mientras existan pedidos activos con cobro pendiente (UNPAID o PARTIALLY_PAID).',
-          });
-        }
-      } catch (e: any) {
-        if (e.response?.errorCode === 'MODULE_HAS_OPEN_OPERATIONS') {
-          throw e;
-        }
+      if (unpaidOrder) {
+        throw new ConflictException({
+          errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
+          moduleKey: 'payments.manual',
+          message: `No se puede desactivar el registro de pagos mientras existan pedidos activos con cobro pendiente (ej. ${unpaidOrder.order_code}).`,
+        });
       }
     }
   }
