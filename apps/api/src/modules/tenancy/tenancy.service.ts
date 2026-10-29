@@ -57,9 +57,25 @@ export class TenancyService {
   }
 
   /**
-   * Lista todas las sucursales del restaurante.
+   * Lista las sucursales del restaurante respetando el alcance (branch_scope) del usuario operativo.
    */
-  async listBranches(tenantId: string) {
+  async listBranches(tenantId: string, user?: { roleKey?: string; branchScope?: string[] }) {
+    if (
+      user &&
+      user.roleKey !== 'TENANT_ADMIN' &&
+      user.roleKey !== 'PLATFORM_ADMIN' &&
+      Array.isArray(user.branchScope) &&
+      user.branchScope.length > 0
+    ) {
+      return this.prisma.branch.findMany({
+        where: {
+          tenant_id: tenantId,
+          id: { in: user.branchScope },
+        },
+        orderBy: { created_at: 'asc' },
+      });
+    }
+
     return this.prisma.branch.findMany({
       where: { tenant_id: tenantId },
       orderBy: { created_at: 'asc' },

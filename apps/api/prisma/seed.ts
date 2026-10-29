@@ -312,7 +312,51 @@ async function main() {
         },
       },
     });
-    console.log('✓ Sucursal demo creada.');
+    console.log('✓ Sucursal demo Zona G creada.');
+  }
+
+  // Segunda sucursal para pruebas multi-sede
+  let secondBranch = await prisma.branch.findFirst({
+    where: { tenant_id: demoTenant.id, slug: 'usaquen' },
+  });
+
+  if (!secondBranch) {
+    secondBranch = await prisma.branch.create({
+      data: {
+        tenant_id: demoTenant.id,
+        name: 'Sede Usaquén Bistro',
+        slug: 'usaquen',
+        address: 'Carrera 6 # 119-24, Usaquén',
+        phone_whatsapp_e164: '+573009876543',
+        status: 'ACTIVE',
+        channel_policies: {
+          create: [
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'DINE_IN',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+            },
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'PICKUP',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+            },
+            {
+              tenant_id: demoTenant.id,
+              fulfillment_type: 'DELIVERY',
+              enabled: true,
+              payment_policy: 'OFFLINE_ONLY',
+              require_payment_before_preparation: false,
+            },
+          ],
+        },
+      },
+    });
+    console.log('✓ Segunda sucursal demo (Usaquén) creada para pruebas multi-sucursal.');
   }
 
   // Activar módulos predeterminados para el tenant demo
@@ -408,6 +452,11 @@ async function main() {
       },
     });
 
+    const userBranchScope =
+      u.roleKey === 'TENANT_ADMIN' || u.roleKey === 'PLATFORM_ADMIN'
+        ? []
+        : [demoBranch.id];
+
     const existingMembership = await prisma.membership.findFirst({
       where: {
         tenant_id: demoTenant.id,
@@ -421,7 +470,7 @@ async function main() {
         data: {
           role_key: u.roleKey,
           is_active: true,
-          branch_scope: [],
+          branch_scope: userBranchScope,
         },
       });
     } else {
@@ -430,7 +479,7 @@ async function main() {
           tenant_id: demoTenant.id,
           user_id: user.id,
           role_key: u.roleKey,
-          branch_scope: [],
+          branch_scope: userBranchScope,
           is_active: true,
         },
       });

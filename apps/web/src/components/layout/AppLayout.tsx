@@ -5,16 +5,14 @@ import { useBrandStore } from '../../stores/brand.store';
 import { useBranchCapabilities } from '../../hooks/use-branch-capabilities';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api-client';
+import { isPathAllowedForRole } from '../../config/role-navigation.config';
 import {
   LayoutDashboard,
   UtensilsCrossed,
   Truck,
   ShoppingBag,
   Flame,
-  Wine,
   BookOpen,
-  Boxes,
-  Users2,
   Sliders,
   Settings,
   LogOut,
@@ -27,6 +25,7 @@ import {
   MapPin,
   Users,
   BarChart3,
+  Lock,
 } from 'lucide-react';
 import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 
@@ -43,29 +42,50 @@ export const AppLayout: React.FC = () => {
   const { settings } = useBrandStore();
   const { hasModule } = useBranchCapabilities();
 
-  // Obtener sucursales
-  const { data: branches = [] } = useQuery<BranchItem[]>({
-    queryKey: ['branches-list'],
+  // Obtener sucursales filtradas según alcance del usuario
+  const { data: rawBranches = [] } = useQuery<BranchItem[]>({
+    queryKey: ['branches-list', user?.id, user?.roleKey],
     queryFn: () => apiClient.get('/admin/branches'),
     enabled: !!user,
   });
 
-  // Si no hay sucursal seleccionada, seleccionar la principal o primera
+  // Filtrar adicionalmente en frontend si el usuario tiene branchScope explícito
+  const branches = React.useMemo(() => {
+    if (!user) return [];
+    if (user.roleKey === 'TENANT_ADMIN' || user.roleKey === 'PLATFORM_ADMIN') {
+      return rawBranches;
+    }
+    if (user.branchScope && user.branchScope.length > 0) {
+      return rawBranches.filter((b) => user.branchScope?.includes(b.id));
+    }
+    return rawBranches;
+  }, [rawBranches, user]);
+
+  // Si no hay sucursal seleccionada o la actual no es válida para el usuario, seleccionar la primera autorizada
   React.useEffect(() => {
-    if (!currentBranchId && branches.length > 0) {
-      const main = branches.find((b) => b.is_main) || branches[0];
-      if (main) {
-        setCurrentBranchId(main.id);
+    if (branches.length > 0) {
+      const isValidCurrent = branches.some((b) => b.id === currentBranchId);
+      if (!currentBranchId || !isValidCurrent) {
+        const main = branches.find((b) => b.is_main) || branches[0];
+        if (main) {
+          setCurrentBranchId(main.id);
+        }
       }
     }
   }, [branches, currentBranchId, setCurrentBranchId]);
 
-  // Navegación modular dinámica
+  // Regla de bloqueo de sucursal: usuarios operativos con 1 sede no pueden cambiar de sede
+  const isBranchLocked =
+    user?.roleKey !== 'TENANT_ADMIN' &&
+    user?.roleKey !== 'PLATFORM_ADMIN' &&
+    branches.length === 1;
+
+  // Navegación modular dinámica filtrada por MÓDULO y por ROL
   const navItems = [
-    { label: 'Panel Principal', path: '/dashboard', icon: LayoutDashboard, alwaysShow: true },
-    { label: 'Panel de Pedidos', path: '/panel', icon: Sparkles, alwaysShow: true },
-    { label: 'Menú & Carta', path: '/menu', icon: BookOpen, alwaysShow: true },
-    { label: 'Códigos QR', path: '/admin/qr-codes', icon: QrCode, alwaysShow: true },
+    { label: 'Panel Principal', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Panel de Pedidos', path: '/panel', icon: Sparkles, module: 'order_panel' },
+    { label: 'Menú & Carta', path: '/menu', icon: BookOpen },
+    { label: 'Códigos QR', path: '/admin/qr-codes', icon: QrCode },
     { label: 'Salón y Mesas', path: '/dining', icon: UtensilsCrossed, module: 'dining' },
     { label: 'Domicilios', path: '/delivery', icon: Truck, module: 'delivery' },
     { label: 'Para Llevar', path: '/pickup', icon: ShoppingBag, module: 'channel.pickup' },
@@ -73,11 +93,27 @@ export const AppLayout: React.FC = () => {
     { label: 'Reportes & Conciliación', path: '/reports', icon: BarChart3, module: 'reporting' },
   ];
 
+  const adminNavItems = [
+    { label: 'Zonas de Domicilio', path: '/admin/delivery-zones', icon: MapPin },
+    { label: 'Mesas & Portamesas', path: '/admin/dining-tables', icon: UtensilsCrossed, module: 'dining' },
+    { label: 'Directorio de Clientes', path: '/admin/customers', icon: Users },
+    { label: 'Capacidades & Perfiles', path: '/admin/capabilities', icon: Sliders },
+    { label: 'Ajustes del Restaurante', path: '/admin/settings', icon: Settings },
+  ];
+
   const filteredNavItems = navItems.filter((item) => {
-    if (item.alwaysShow) return true;
-    if (item.module) return hasModule(item.module);
+    if (!isPathAllowedForRole(item.path, user?.roleKey)) return false;
+    if (item.module && !hasModule(item.module)) return false;
     return true;
   });
+
+  const filteredAdminNavItems = adminNavItems.filter((item) => {
+    if (!isPathAllowedForRole(item.path, user?.roleKey)) return false;
+    if (item.module && !hasModule(item.module)) return false;
+    return true;
+  });
+
+  const activeBranchName = branches.find((b) => b.id === currentBranchId)?.name || branches[0]?.name || 'Sede Principal';
 
   return (
     <div className="flex h-screen bg-[#faf8f5] text-stone-800 overflow-hidden font-sans">
@@ -98,107 +134,98 @@ export const AppLayout: React.FC = () => {
           </div>
         </div>
 
-        {/* Branch Selector */}
+        {/* Branch Selector / Branch Lock Indicator */}
         <div className="px-4 py-3.5 border-b border-stone-100 bg-stone-50/60">
-          <label className="text-[10px] font-bold tracking-wider text-stone-500 uppercase mb-1.5 flex items-center gap-1.5">
-            <Store className="h-3 w-3 text-orange-600" />
-            Sucursal Activa
+          <label className="text-[10px] font-bold tracking-wider text-stone-500 uppercase mb-1.5 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Store className="h-3 w-3 text-orange-600" />
+              {isBranchLocked ? 'Sede Asignada' : 'Sucursal Activa'}
+            </span>
+            {isBranchLocked && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase text-stone-500 bg-stone-200/70 px-1.5 py-0.5 rounded">
+                <Lock className="h-2.5 w-2.5 text-stone-400" />
+                Fija
+              </span>
+            )}
           </label>
-          <div className="relative">
-            <select
-              value={currentBranchId || ''}
-              onChange={(e) => setCurrentBranchId(e.target.value)}
-              className="w-full appearance-none rounded-xl bg-white border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.is_main ? '(Principal)' : ''}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-stone-400" />
-          </div>
+
+          {isBranchLocked ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-stone-200 shadow-2xs">
+              <span className="text-xs font-bold text-stone-800 truncate">
+                {activeBranchName}
+              </span>
+            </div>
+          ) : (
+            <div className="relative">
+              <select
+                value={currentBranchId || ''}
+                onChange={(e) => setCurrentBranchId(e.target.value)}
+                className="w-full appearance-none rounded-xl bg-white border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} {b.is_main ? '(Principal)' : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-stone-400" />
+            </div>
+          )}
         </div>
 
         {/* Dynamic Navigation */}
         <nav className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
-          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-            Operación Diaria
-          </div>
-          {filteredNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  active
-                    ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${active ? 'text-orange-600' : 'text-stone-400'}`} />
-                {item.label}
-              </Link>
-            );
-          })}
+          {filteredNavItems.length > 0 && (
+            <>
+              <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                Operación Diaria
+              </div>
+              {filteredNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      active
+                        ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? 'text-orange-600' : 'text-stone-400'}`} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
 
-          <Link
-            to="/admin/delivery-zones"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              location.pathname === '/admin/delivery-zones'
-                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-            }`}
-          >
-            <MapPin className="h-4 w-4 text-stone-400" />
-            Zonas de Domicilio
-          </Link>
-          <Link
-            to="/admin/dining-tables"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              location.pathname === '/admin/dining-tables'
-                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-            }`}
-          >
-            <UtensilsCrossed className="h-4 w-4 text-stone-400" />
-            Mesas & Portamesas
-          </Link>
-          <Link
-            to="/admin/customers"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              location.pathname === '/admin/customers'
-                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-            }`}
-          >
-            <Users className="h-4 w-4 text-stone-400" />
-            Directorio de Clientes
-          </Link>
-          <Link
-            to="/admin/capabilities"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              location.pathname === '/admin/capabilities'
-                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-            }`}
-          >
-            <Sliders className="h-4 w-4 text-stone-400" />
-            Capacidades & Perfiles
-          </Link>
-          <Link
-            to="/admin/settings"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              location.pathname === '/admin/settings'
-                ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
-            }`}
-          >
-            <Settings className="h-4 w-4 text-stone-400" />
-            Ajustes del Restaurante
-          </Link>
+          {filteredAdminNavItems.length > 0 && (
+            <div className="pt-4 mt-2 border-t border-stone-100 space-y-1">
+              <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                Administración
+              </div>
+              {filteredAdminNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      active
+                        ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? 'text-orange-600' : 'text-stone-400'}`} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* User Card */}
@@ -209,7 +236,7 @@ export const AppLayout: React.FC = () => {
             </div>
             <div className="truncate">
               <p className="text-xs font-bold text-stone-800 truncate">{user?.name || 'Administrador'}</p>
-              <p className="text-[10px] text-stone-500 truncate">{user?.roleKey || 'TENANT_ADMIN'}</p>
+              <p className="text-[10px] font-semibold text-stone-500 truncate">{user?.roleKey || 'STAFF'}</p>
             </div>
           </div>
           <button
@@ -222,18 +249,25 @@ export const AppLayout: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Container */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Banner de Estado de Red / Offline */}
         <NetworkStatusBanner />
-        {/* Mobile TopBar */}
-        <header className="lg:hidden flex items-center justify-between px-4 h-16 bg-white border-b border-stone-200 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-600 text-white font-black text-sm">
+
+        {/* Mobile Header */}
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-stone-200">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-600 text-white font-bold text-sm">
               K
             </div>
-            <span className="font-bold text-sm text-stone-900 truncate max-w-[160px]">
-              {settings.display_name || 'Karta'}
-            </span>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-stone-900 text-sm truncate">
+                {settings.display_name || 'Karta'}
+              </span>
+              <span className="text-[10px] text-stone-500 font-semibold truncate">
+                {activeBranchName}
+              </span>
+            </div>
           </div>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -261,6 +295,19 @@ export const AppLayout: React.FC = () => {
                     <X className="h-5 w-5 text-stone-400" />
                   </button>
                 </div>
+
+                {/* Mobile Branch indicator */}
+                <div className="mt-3 py-2 px-3 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-800 truncate">
+                    {activeBranchName}
+                  </span>
+                  {isBranchLocked && (
+                    <span className="text-[9px] font-bold text-stone-500 bg-stone-200/60 px-1.5 py-0.5 rounded">
+                      Fija
+                    </span>
+                  )}
+                </div>
+
                 <nav className="mt-4 space-y-1">
                   {filteredNavItems.map((item) => (
                     <Link
@@ -273,56 +320,34 @@ export const AppLayout: React.FC = () => {
                       {item.label}
                     </Link>
                   ))}
-                  <div className="pt-4 border-t border-stone-100 mt-4 space-y-1">
-                    <Link
-                      to="/admin/delivery-zones"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
-                    >
-                      <MapPin className="h-4 w-4" />
-                      Zonas de Domicilio
-                    </Link>
-                    <Link
-                      to="/admin/dining-tables"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
-                    >
-                      <UtensilsCrossed className="h-4 w-4" />
-                      Mesas & Portamesas
-                    </Link>
-                    <Link
-                      to="/admin/customers"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
-                    >
-                      <Users className="h-4 w-4" />
-                      Directorio de Clientes
-                    </Link>
-                    <Link
-                      to="/admin/capabilities"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
-                    >
-                      <Sliders className="h-4 w-4" />
-                      Capacidades & Perfiles
-                    </Link>
-                    <Link
-                      to="/admin/settings"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Ajustes del Restaurante
-                    </Link>
-                  </div>
+
+                  {filteredAdminNavItems.length > 0 && (
+                    <div className="pt-4 border-t border-stone-100 mt-4 space-y-1">
+                      <div className="px-3 pb-1 text-[10px] font-bold uppercase text-stone-400">
+                        Administración
+                      </div>
+                      {filteredAdminNavItems.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-stone-700 hover:bg-orange-50 hover:text-orange-600"
+                        >
+                          <item.icon className="h-4 w-4 text-stone-400" />
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </nav>
               </div>
+
               <button
                 onClick={logout}
                 className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold"
               >
                 <LogOut className="h-4 w-4" />
-                Cerrar Sesión
+                Cerrar Sesión ({user?.roleKey})
               </button>
             </div>
             <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />

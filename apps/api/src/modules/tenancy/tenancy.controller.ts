@@ -41,7 +41,7 @@ export class TenancyController {
   @Get('branches')
   @RequirePermissions('tenancy:read')
   async listBranches(@CurrentUser() user: AuthenticatedUserPayload) {
-    return this.tenancyService.listBranches(user.tenantId);
+    return this.tenancyService.listBranches(user.tenantId, user);
   }
 
   @Get('branches/:branchId')
