@@ -270,40 +270,56 @@ export const ConsumptionSplitDrawer: React.FC<ConsumptionSplitDrawerProps> = ({
   const handlePrintReceipt = () => {
     if (!accountDetail) return;
 
-    const receiptContent = formatDiningPreCuentaText({
-      restaurantName: settings.display_name || 'Karta Bistro',
-      branchName: accountDetail.branch?.name || 'Sede Principal',
-      branchAddress: accountDetail.branch?.address,
-      branchPhone: accountDetail.branch?.phone,
-      tableCode: tableCode,
-      accountCode: accountDetail.account_code,
-      guestCount: diners.length,
-      openedAt: accountDetail.opened_at,
-      items: items.map((it: any) => ({
-        name: it.product_name || 'Producto',
-        quantity: 1,
-        unitPriceCop: it.line_total_cop,
-        lineTotalCop: it.line_total_cop,
-      })),
-      subtotalProductsCop: accountDetail.subtotal_products_cop,
-      discountTotalCop: accountDetail.discount_total_cop,
-      tipCop: accountDetail.tip_cop,
-      grandTotalCop: accountDetail.grand_total_cop,
-      paidTotalCop: accountDetail.paid_total_cop,
-      dinerDistribution: {
-        splitRule,
-        diners: liveCalculation.diners.map((dt: CalculatedDinerSummary) => ({
-          label: dt.label,
-          subtotalItemsCop: dt.subtotal_items_cop,
-          discountShareCop: dt.discount_share_cop,
-          tipShareCop: dt.tip_share_cop,
-          totalCop: dt.diner_total_cop,
-        })),
-        unassignedAmountCop: liveCalculation.unassigned_amount_cop,
-      },
-    });
+    let thermalWidth: '80mm' | '58mm' = '80mm';
+    try {
+      const saved = localStorage.getItem('karta_pos_thermal_paper_width');
+      if (saved === '58mm' || saved === '80mm') thermalWidth = saved;
+    } catch {
+      // ignore
+    }
 
-    printThermalContent({ content: receiptContent, width: '80mm' });
+    const accountTenantName = (accountDetail as any)?.tenant?.name;
+    const accountBranchName = accountDetail.branch?.name;
+    const accountBranchAddress = accountDetail.branch?.address;
+    const accountBranchPhone = (accountDetail.branch as any)?.phone_whatsapp_e164 || accountDetail.branch?.phone;
+
+    const receiptContent = formatDiningPreCuentaText(
+      {
+        restaurantName: accountTenantName || settings.display_name || 'Karta Bistro',
+        branchName: accountBranchName || 'Sede Principal',
+        branchAddress: accountBranchAddress,
+        branchPhone: accountBranchPhone,
+        tableCode: tableCode,
+        accountCode: accountDetail.account_code,
+        guestCount: diners.length,
+        openedAt: accountDetail.opened_at,
+        items: items.map((it: any) => ({
+          name: it.product_name || 'Producto',
+          quantity: 1,
+          unitPriceCop: it.line_total_cop,
+          lineTotalCop: it.line_total_cop,
+        })),
+        subtotalProductsCop: accountDetail.subtotal_products_cop,
+        discountTotalCop: accountDetail.discount_total_cop,
+        tipCop: accountDetail.tip_cop,
+        grandTotalCop: accountDetail.grand_total_cop,
+        paidTotalCop: accountDetail.paid_total_cop,
+        dinerDistribution: {
+          splitRule,
+          diners: liveCalculation.diners.map((dt: CalculatedDinerSummary) => ({
+            label: dt.label,
+            subtotalItemsCop: dt.subtotal_items_cop,
+            discountShareCop: dt.discount_share_cop,
+            tipShareCop: dt.tip_share_cop,
+            totalCop: dt.diner_total_cop,
+          })),
+          unassignedAmountCop: liveCalculation.unassigned_amount_cop,
+        },
+      },
+      { width: thermalWidth },
+    );
+
+    printThermalContent({ content: receiptContent, width: thermalWidth });
   };
 
   return (

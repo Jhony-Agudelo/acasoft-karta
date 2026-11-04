@@ -150,7 +150,7 @@ export const PendingQrOrdersModal: React.FC<PendingQrOrdersModalProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-black text-stone-900">
-                      #{ord.order_code}
+                      {ord.order_code?.startsWith('#') ? ord.order_code : `#${ord.order_code}`}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                       REQUESTED

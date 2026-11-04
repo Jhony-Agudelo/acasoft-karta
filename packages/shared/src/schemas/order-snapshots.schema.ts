@@ -11,13 +11,13 @@ import { TaxProfileModeSchema, TaxTypeSchema } from './catalog.schema';
 // ---------------------------------------------------------------------------
 export const CustomerSnapshotSchema = z.object({
   name: z.string(),
-  phone_e164: z.string(),
-  delivery_zone_id: z.string().uuid().nullable(),
-  delivery_zone_name: z.string().nullable(),
-  address_line: z.string().nullable(),
-  neighborhood: z.string().nullable(),
-  reference_notes: z.string().nullable(),
-  privacy_consent_at: z.string(), // ISO-8601
+  phone_e164: z.string().nullable().optional(),
+  delivery_zone_id: z.string().uuid().nullable().optional(),
+  delivery_zone_name: z.string().nullable().optional(),
+  address_line: z.string().nullable().optional(),
+  neighborhood: z.string().nullable().optional(),
+  reference_notes: z.string().nullable().optional(),
+  privacy_consent_at: z.string().optional(), // ISO-8601
   anonymized_at: z.string().nullable().optional(), // ISO-8601
 });
 

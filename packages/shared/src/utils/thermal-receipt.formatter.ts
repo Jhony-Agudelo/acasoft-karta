@@ -104,7 +104,8 @@ export function formatThermalReceiptText(
   lines.push(doubleSeparator);
 
   // Datos de la comanda
-  lines.push(line2(`ORDEN: #${data.orderCode}`, data.fulfillmentType));
+  const orderCodeFormatted = data.orderCode.startsWith('#') ? data.orderCode : `#${data.orderCode}`;
+  lines.push(line2(`ORDEN: ${orderCodeFormatted}`, data.fulfillmentType));
   const dateStr =
     typeof data.createdAt === 'string'
       ? new Date(data.createdAt).toLocaleString('es-CO')

@@ -61,29 +61,36 @@ export function printThermalContent(options: PrintReceiptOptions): void {
         <title>Impresión Térmica Karta</title>
         <style>
           @page {
-            size: ${mmWidth} auto;
             margin: 0;
           }
           @media print {
+            * {
+              box-sizing: border-box;
+            }
             html, body {
               width: ${mmWidth};
-              margin: 0;
-              padding: 0;
+              margin: 0 !important;
+              padding: 0 !important;
               background: #fff;
               color: #000;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
           }
+          * {
+            box-sizing: border-box;
+          }
           body {
+            width: ${mmWidth};
+            max-width: ${mmWidth};
             font-family: 'Consolas', 'Courier New', Courier, monospace;
-            font-size: ${width === '58mm' ? '8.5px' : '9.5px'};
+            font-size: ${width === '58mm' ? '9.5px' : '10.5px'};
             line-height: 1.25;
             white-space: pre;
-            overflow-x: hidden;
+            overflow: visible;
             word-break: keep-all;
             overflow-wrap: normal;
-            padding: 4px;
+            padding: 2mm 3mm;
             margin: 0;
           }
         </style>
@@ -170,7 +177,7 @@ export function formatKitchenTicketText(order: {
     modifiers?: string[];
   }>;
 }, width: ThermalPaperWidth = '80mm'): string {
-  const cols = width === '58mm' ? 32 : 42;
+  const cols = width === '58mm' ? 30 : 36;
   const sep = '='.repeat(cols);
   const thinSep = '-'.repeat(cols);
 

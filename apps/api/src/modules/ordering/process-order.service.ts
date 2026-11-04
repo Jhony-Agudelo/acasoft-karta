@@ -160,15 +160,23 @@ export class ProcessOrderService {
       const customerSnapshot = order.customer_snapshot_json as any;
       const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
-      const { whatsapp_client_url, copyable_message } = buildBranchToCustomerProcessedWhatsapp({
-        customerName: customerSnapshot?.name || 'Cliente',
-        customerPhoneE164: customerSnapshot?.phone_e164 || '',
-        restaurantName: order.branch?.name || 'Restaurante',
-        orderCode: order.order_code,
-        grandTotalCop: order.grand_total_cop,
-        publicToken: order.public_token,
-        trackingBaseUrl: baseUrl,
-      });
+      let whatsappClientUrl = '';
+      let copyableMsg = '';
+      try {
+        const { whatsapp_client_url, copyable_message } = buildBranchToCustomerProcessedWhatsapp({
+          customerName: customerSnapshot?.name || 'Cliente',
+          customerPhoneE164: customerSnapshot?.phone_e164 || '',
+          restaurantName: order.branch?.name || 'Restaurante',
+          orderCode: order.order_code,
+          grandTotalCop: order.grand_total_cop,
+          publicToken: order.public_token,
+          trackingBaseUrl: baseUrl,
+        });
+        whatsappClientUrl = whatsapp_client_url;
+        copyableMsg = copyable_message;
+      } catch {
+        // En comandas de salón o pedidos sin teléfono de contacto, omitir enlace wa.me
+      }
 
       // 8. Notificación en tiempo real vía Server-Sent Events
       const editsCount = order.edits?.length || 0;
@@ -205,8 +213,8 @@ export class ProcessOrderService {
         processed_at: processedAt,
         grand_total_cop: updatedOrder.grand_total_cop,
         tracking_url: trackingUrl,
-        whatsapp_client_url,
-        copyable_message,
+        whatsapp_client_url: whatsappClientUrl,
+        copyable_message: copyableMsg,
       };
     });
   }

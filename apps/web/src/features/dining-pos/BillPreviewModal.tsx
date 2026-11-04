@@ -80,7 +80,23 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
   const [paymentReference, setPaymentReference] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [lastPaymentInfo, setLastPaymentInfo] = useState<any | null>(null);
-  const [thermalWidth, setThermalWidth] = useState<'80mm' | '58mm'>('80mm');
+  const [thermalWidth, setThermalWidth] = useState<'80mm' | '58mm'>(() => {
+    try {
+      const saved = localStorage.getItem('karta_pos_thermal_paper_width');
+      return saved === '58mm' || saved === '80mm' ? saved : '80mm';
+    } catch {
+      return '80mm';
+    }
+  });
+
+  const handleSetThermalWidth = (width: '80mm' | '58mm') => {
+    setThermalWidth(width);
+    try {
+      localStorage.setItem('karta_pos_thermal_paper_width', width);
+    } catch {
+      // ignore
+    }
+  };
 
   // Formulario de Cierre Especial
   const [showSpecialClose, setShowSpecialClose] = useState(false);
@@ -359,10 +375,17 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
       })),
     );
 
+    const accountTenantName = (account as any)?.tenant?.name;
+    const accountBranchName = (account as any)?.branch?.name;
+    const accountBranchAddress = (account as any)?.branch?.address;
+    const accountBranchPhone = (account as any)?.branch?.phone_whatsapp_e164;
+
     const receiptContent = formatDiningPreCuentaText(
       {
-        restaurantName: settings.display_name || 'Karta Bistro',
-        branchName: 'Sede Principal',
+        restaurantName: accountTenantName || settings.display_name || 'Karta Bistro',
+        branchName: accountBranchName || 'Sede Principal',
+        branchAddress: accountBranchAddress,
+        branchPhone: accountBranchPhone,
         tableCode: tableCode,
         accountCode: account.account_code,
         guestCount: account.guest_count,
@@ -402,10 +425,17 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     const paymentAmount = payment.amountCop ?? payment.amount_cop ?? 0;
     const paidAt = payment.paidAt || payment.created_at || new Date();
 
+    const accountTenantName = (account as any)?.tenant?.name;
+    const accountBranchName = (account as any)?.branch?.name;
+    const accountBranchAddress = (account as any)?.branch?.address;
+    const accountBranchPhone = (account as any)?.branch?.phone_whatsapp_e164;
+
     const receiptContent = formatDiningPaymentReceiptText(
       {
-        restaurantName: settings.display_name || 'Karta Bistro',
-        branchName: 'Sede Principal',
+        restaurantName: accountTenantName || settings.display_name || 'Karta Bistro',
+        branchName: accountBranchName || 'Sede Principal',
+        branchAddress: accountBranchAddress,
+        branchPhone: accountBranchPhone,
         tableCode: tableCode,
         accountCode: account.account_code,
         cashierName: user?.name || 'Cajero Salón',
@@ -479,7 +509,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
             <div className="flex items-center rounded-lg bg-stone-100 p-0.5 border border-stone-200 text-[10px] font-bold">
               <button
                 type="button"
-                onClick={() => setThermalWidth('80mm')}
+                onClick={() => handleSetThermalWidth('80mm')}
                 className={`px-2 py-1 rounded-md transition ${thermalWidth === '80mm' ? 'bg-white shadow-xs text-stone-900 font-extrabold' : 'text-stone-500 hover:text-stone-700'}`}
                 title="Papel 80mm (Estándar)"
               >
@@ -487,7 +517,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setThermalWidth('58mm')}
+                onClick={() => handleSetThermalWidth('58mm')}
                 className={`px-2 py-1 rounded-md transition ${thermalWidth === '58mm' ? 'bg-white shadow-xs text-stone-900 font-extrabold' : 'text-stone-500 hover:text-stone-700'}`}
                 title="Papel 58mm (Compacto)"
               >

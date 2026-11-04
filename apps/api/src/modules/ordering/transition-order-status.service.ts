@@ -143,15 +143,23 @@ export class TransitionOrderStatusService {
       const customerSnapshot = order.customer_snapshot_json as any;
       const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
-      const whatsapp = buildBranchToCustomerStatusWhatsapp({
-        customerName: customerSnapshot?.name || 'Cliente',
-        customerPhoneE164: customerSnapshot?.phone_e164 || '',
-        restaurantName: order.branch?.name || 'Restaurante',
-        orderCode: order.order_code,
-        status: dto.to_status as OrderStatus,
-        publicToken: order.public_token,
-        trackingBaseUrl: baseUrl,
-      });
+      let whatsappStatusUrl = '';
+      let copyableStatusMessage = '';
+      try {
+        const whatsapp = buildBranchToCustomerStatusWhatsapp({
+          customerName: customerSnapshot?.name || 'Cliente',
+          customerPhoneE164: customerSnapshot?.phone_e164 || '',
+          restaurantName: order.branch?.name || 'Restaurante',
+          orderCode: order.order_code,
+          status: dto.to_status as OrderStatus,
+          publicToken: order.public_token,
+          trackingBaseUrl: baseUrl,
+        });
+        whatsappStatusUrl = whatsapp.whatsapp_client_url;
+        copyableStatusMessage = whatsapp.copyable_message;
+      } catch {
+        // En pedidos de salón sin teléfono de contacto o con teléfono inválido, no se genera link wa.me
+      }
 
       // 10. Emisión de eventos SSE en tiempo real
       const editsCount = order.edits?.length || 0;
@@ -173,8 +181,8 @@ export class TransitionOrderStatusService {
 
       return {
         order: updatedOrder,
-        whatsapp_status_url: whatsapp.whatsapp_client_url,
-        copyable_status_message: whatsapp.copyable_message,
+        whatsapp_status_url: whatsappStatusUrl,
+        copyable_status_message: copyableStatusMessage,
       };
     });
   }

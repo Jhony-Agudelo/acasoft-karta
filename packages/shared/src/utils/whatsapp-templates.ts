@@ -270,7 +270,8 @@ export function buildBranchToCustomerProcessedWhatsapp(params: {
   const formattedTotal = formatMoneyCop(grandTotalCop);
 
   const copyable_message = `Hola ${firstName}, tu pedido *${orderCode}* en *${restaurantName}* ha sido confirmado por un total de *${formattedTotal}*. Puedes ver el resumen final y el estado en vivo aquí: ${trackingUrl}`;
-  const whatsapp_client_url = buildWhatsAppLink(customerPhoneE164, copyable_message);
+  const hasValidPhone = Boolean(customerPhoneE164) && isValidColombianMobileE164(customerPhoneE164);
+  const whatsapp_client_url = hasValidPhone ? buildWhatsAppLink(customerPhoneE164, copyable_message) : '';
 
   return {
     whatsapp_client_url,
@@ -329,7 +330,8 @@ export function buildBranchToCustomerStatusWhatsapp(params: {
   }
 
   const copyable_message = `${statusMsg} Puedes ver el seguimiento aquí: ${trackingUrl}`;
-  const whatsapp_client_url = buildWhatsAppLink(customerPhoneE164, copyable_message);
+  const hasValidPhone = Boolean(customerPhoneE164) && isValidColombianMobileE164(customerPhoneE164);
+  const whatsapp_client_url = hasValidPhone ? buildWhatsAppLink(customerPhoneE164, copyable_message) : '';
 
   return {
     whatsapp_client_url,

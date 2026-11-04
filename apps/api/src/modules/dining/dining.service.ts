@@ -444,6 +444,8 @@ export class DiningService {
       where: { id: accountId, tenant_id: tenantId },
       include: {
         table: true,
+        branch: { select: { id: true, name: true, address: true, phone_whatsapp_e164: true } },
+        tenant: { select: { id: true, name: true } },
         orders: {
           where: {
             status: { notIn: ['REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'] },
@@ -642,7 +644,7 @@ export class DiningService {
           payment_status: 'UNPAID',
           customer_snapshot_json: {
             name: `Mesa ${account.table.code}`,
-            phone_e164: '+570000000000',
+            phone_e164: null,
           },
           table_id: account.table_id,
           dining_account_id: account.id,
