@@ -84,13 +84,14 @@ export function printThermalContent(options: PrintReceiptOptions): void {
             width: ${mmWidth};
             max-width: ${mmWidth};
             font-family: 'Consolas', 'Courier New', Courier, monospace;
-            font-size: ${width === '58mm' ? '9.5px' : '10.5px'};
-            line-height: 1.25;
+            font-size: ${width === '58mm' ? '8.8px' : '9.5px'};
+            line-height: 1.2;
+            letter-spacing: -0.2px;
             white-space: pre;
             overflow: visible;
             word-break: keep-all;
             overflow-wrap: normal;
-            padding: 2mm 3mm;
+            padding: 1.5mm 1.5mm;
             margin: 0;
           }
         </style>

@@ -32,13 +32,14 @@ describe('TC-POST06: Separación de Roles y Aislamiento de Sucursales', () => {
       expect(isPathAllowedForRole('/admin/settings', 'KITCHEN')).toBe(false);
     });
 
-    it('debe permitir a CASHIER acceso a Salón, Caja, Panel y Reportes de arqueo, pero no a configuración administrativa', () => {
+    it('debe permitir a CASHIER acceso a Salón, Caja, Panel y Reportes de arqueo, pero bloquear acceso o modificación directa a la carta /menu', () => {
       expect(isPathAllowedForRole('/dining', 'CASHIER')).toBe(true);
       expect(isPathAllowedForRole('/panel', 'CASHIER')).toBe(true);
-      expect(isPathAllowedForRole('/menu', 'CASHIER')).toBe(true);
       expect(isPathAllowedForRole('/reports', 'CASHIER')).toBe(true);
 
-      // Rutas bloqueadas
+      // Rutas bloqueadas (Cajero no puede ver ni modificar la carta por ruta /menu)
+      expect(isPathAllowedForRole('/menu', 'CASHIER')).toBe(false);
+      expect(isPathAllowedForRole('/admin/menu', 'CASHIER')).toBe(false);
       expect(isPathAllowedForRole('/dashboard', 'CASHIER')).toBe(false);
       expect(isPathAllowedForRole('/kds', 'CASHIER')).toBe(false);
       expect(isPathAllowedForRole('/admin/settings', 'CASHIER')).toBe(false);

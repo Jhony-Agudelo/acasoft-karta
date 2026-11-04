@@ -638,11 +638,16 @@ export const DiningFloorPlanPage: React.FC = () => {
                                   e.stopPropagation();
                                   try {
                                     const detail: any = await apiClient.get(`/accounts/${account.id}`);
-                                    const readyOrder = detail.orders?.find((o: any) => o.status === 'READY');
-                                    if (readyOrder) {
-                                      await apiClient.patch(`/orders/${readyOrder.id}/status`, { to_status: 'SERVED' });
+                                    const readyOrders = detail.orders?.filter((o: any) => o.status === 'READY') || [];
+                                    if (readyOrders.length > 0) {
+                                      await Promise.all(
+                                        readyOrders.map((ro: any) =>
+                                          apiClient.patch(`/orders/${ro.id}/status`, { to_status: 'SERVED' })
+                                        )
+                                      );
                                       refetch();
                                       queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
+                                      queryClient.invalidateQueries({ queryKey: ['kitchen-orders'] });
                                     }
                                   } catch (err: any) {
                                     alert(err?.response?.data?.message || err?.message || 'Error al marcar servido.');

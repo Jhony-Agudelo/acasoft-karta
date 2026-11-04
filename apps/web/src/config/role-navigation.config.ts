@@ -54,7 +54,6 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/dining',
     '/panel',
     '/panel/lite',
-    '/menu',
     '/reports',
   ],
   WAITER: [

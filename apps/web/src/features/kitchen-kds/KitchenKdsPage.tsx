@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Flame,
@@ -79,6 +79,9 @@ export const KitchenKdsPage: React.FC = () => {
   // Filtro de estación de cocina
   const [selectedStationKey, setSelectedStationKey] = useState<string>('ALL');
   const [orderForPrint, setOrderForPrint] = useState<any | null>(null);
+
+  // Vista / Pestaña KDS: En Preparación (por defecto), Listas / Despacho, Todas
+  const [viewTab, setViewTab] = useState<'PREPARING' | 'READY' | 'ALL'>('PREPARING');
 
   // Sonido
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
@@ -239,6 +242,25 @@ export const KitchenKdsPage: React.FC = () => {
     return minutes;
   };
 
+  // Clasificación de órdenes para limpieza visual del KDS
+  const isOrderAllReady = (order: KitchenOrder) => {
+    return order.status === 'READY' || (order.items.length > 0 && order.items.every((it) => getItemStatus(it) === 'READY'));
+  };
+
+  const preparingOrders = useMemo<KitchenOrder[]>(() => {
+    return orders.filter((o) => !isOrderAllReady(o));
+  }, [orders]);
+
+  const readyOrders = useMemo<KitchenOrder[]>(() => {
+    return orders.filter((o) => isOrderAllReady(o));
+  }, [orders]);
+
+  const filteredOrders = useMemo<KitchenOrder[]>(() => {
+    if (viewTab === 'PREPARING') return preparingOrders;
+    if (viewTab === 'READY') return readyOrders;
+    return orders;
+  }, [viewTab, orders, preparingOrders, readyOrders]);
+
   return (
     <div className="flex flex-col h-full bg-[#181615] text-stone-100 font-sans select-none">
       {/* Top Header KDS (Modo Oscuro de Alto Contraste para Cocina) */}
@@ -325,6 +347,80 @@ export const KitchenKdsPage: React.FC = () => {
         </div>
       </header>
 
+      {/* Barra de Pestañas de Estado KDS: En Preparación / Listas / Todas */}
+      <div className="bg-[#1e1b19] border-b border-stone-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-inner">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewTab('PREPARING')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              viewTab === 'PREPARING'
+                ? 'bg-orange-600 text-white shadow-xs ring-1 ring-orange-500'
+                : 'text-stone-400 hover:text-stone-200 bg-[#24211e] border border-stone-800'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>En Preparación</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                viewTab === 'PREPARING'
+                  ? 'bg-orange-800 text-orange-100'
+                  : 'bg-stone-800 text-stone-300'
+              }`}
+            >
+              {preparingOrders.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewTab('READY')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              viewTab === 'READY'
+                ? 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-500'
+                : 'text-stone-400 hover:text-stone-200 bg-[#24211e] border border-stone-800'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Listas / Despacho</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                viewTab === 'READY'
+                  ? 'bg-emerald-800 text-emerald-100'
+                  : 'bg-stone-800 text-stone-300'
+              }`}
+            >
+              {readyOrders.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewTab('ALL')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              viewTab === 'ALL'
+                ? 'bg-stone-700 text-white shadow-xs'
+                : 'text-stone-400 hover:text-stone-200 bg-[#24211e] border border-stone-800'
+            }`}
+          >
+            <span>Todas</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                viewTab === 'ALL' ? 'bg-stone-900 text-stone-200' : 'bg-stone-800 text-stone-300'
+              }`}
+            >
+              {orders.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-[11px] text-stone-400 hidden md:block">
+          {viewTab === 'PREPARING' && '🔥 Órdenes activas en cocina por preparar o cocinando'}
+          {viewTab === 'READY' && '✅ Platos 100% listos esperando que el mesero o repartidor retire'}
+          {viewTab === 'ALL' && '📊 Vista global de comandas'}
+        </div>
+      </div>
+
       {/* Grid de Comandas KDS */}
       <div className="flex-1 overflow-y-auto p-6">
         {isLoading ? (
@@ -332,20 +428,29 @@ export const KitchenKdsPage: React.FC = () => {
             <div className="w-10 h-10 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-sm font-semibold">Cargando comandas de cocina...</p>
           </div>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="bg-[#24211e] rounded-3xl border border-stone-800 p-16 text-center max-w-md mx-auto my-16 shadow-xl space-y-4">
             <div className="w-16 h-16 rounded-3xl bg-[#181615] text-stone-600 flex items-center justify-center mx-auto text-3xl">
-              🍳
+              {viewTab === 'READY' ? '✨' : '🍳'}
             </div>
-            <h3 className="font-extrabold text-white text-lg">Cocina al Día</h3>
+            <h3 className="font-extrabold text-white text-lg">
+              {viewTab === 'PREPARING'
+                ? 'Cocina al Día'
+                : viewTab === 'READY'
+                ? 'Sin Platos Pendientes de Despacho'
+                : 'Sin Comandas Activas'}
+            </h3>
             <p className="text-xs text-stone-400 leading-relaxed">
-              No hay comandas activas pendientes de preparación en este momento. Los nuevos pedidos
-              autorizados entrarán automáticamente con timbre.
+              {viewTab === 'PREPARING'
+                ? 'No hay platos pendientes de cocción en este momento. La pantalla se mantendrá limpia hasta nuevo pedido.'
+                : viewTab === 'READY'
+                ? 'Todas las comandas preparadas ya fueron retiradas y servidas.'
+                : 'No hay comandas registradas en esta estación.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const customerSnapshot = order.customer_snapshot_json || {};
               const minutesElapsed = getTimeElapsed(order.created_at);
               const isPickup = order.fulfillment_type === 'PICKUP';
@@ -605,12 +710,12 @@ export const KitchenKdsPage: React.FC = () => {
                         {isDineIn ? (
                           <>
                             <UtensilsCrossed className="w-4 h-4" />
-                            <span>🍽️ Servido en Mesa</span>
+                            <span>🍽️ Servir y Archivar</span>
                           </>
                         ) : isPickup ? (
                           <>
                             <ShoppingBag className="w-4 h-4" />
-                            <span>📦 Entregado</span>
+                            <span>📦 Entregar y Archivar</span>
                           </>
                         ) : (
                           <>
