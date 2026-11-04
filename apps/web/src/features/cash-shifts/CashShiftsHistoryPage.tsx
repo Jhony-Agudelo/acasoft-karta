@@ -19,7 +19,11 @@ import {
   Eye,
   X,
   FileSpreadsheet,
+  Plus,
 } from 'lucide-react';
+import { useCashShift } from './use-cash-shift';
+import { OpenShiftModal } from './OpenShiftModal';
+import { CashShiftControlModal } from './CashShiftControlModal';
 
 export const CashShiftsHistoryPage: React.FC = () => {
   const { currentBranchId } = useAuthStore();
@@ -35,6 +39,9 @@ export const CashShiftsHistoryPage: React.FC = () => {
   const [dateTo, setDateTo] = useState(getTodayStr());
   const [statusFilter, setStatusFilter] = useState<string>('CLOSED');
   const [selectedShift, setSelectedShift] = useState<CashShiftHistoryItem | null>(null);
+  const { currentShift } = useCashShift();
+  const [openModalVisible, setOpenModalVisible] = useState(false);
+  const [controlModalVisible, setControlModalVisible] = useState(false);
 
   const queryKey = ['cash-shifts', 'history', currentBranchId, dateFrom, dateTo, statusFilter];
 
@@ -98,6 +105,28 @@ export const CashShiftsHistoryPage: React.FC = () => {
           <p className="text-sm font-semibold text-stone-500 mt-1">
             Historial de cierres de caja, arqueos ciegos y control de discrepancias físicas
           </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {currentShift ? (
+            <button
+              type="button"
+              onClick={() => setControlModalVisible(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer"
+            >
+              <Receipt className="h-4 w-4" />
+              <span>Turno Activo ({currentShift.shift_code}) — Ver Control</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOpenModalVisible(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md shadow-orange-600/20 transition cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Abrir Nuevo Turno de Caja</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -450,6 +479,24 @@ export const CashShiftsHistoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal para apertura de turno de caja */}
+      {openModalVisible && (
+        <OpenShiftModal
+          isOpen={openModalVisible}
+          onClose={() => setOpenModalVisible(false)}
+        />
+      )}
+
+      {/* Modal para control del turno activo */}
+      {controlModalVisible && currentShift && (
+        <CashShiftControlModal
+          isOpen={controlModalVisible}
+          shift={currentShift}
+          onClose={() => setControlModalVisible(false)}
+        />
+      )}
     </div>
   );
 };
+

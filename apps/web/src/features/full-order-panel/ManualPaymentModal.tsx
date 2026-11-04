@@ -35,6 +35,7 @@ interface ManualPaymentModalProps {
   onClose: () => void;
   order: {
     id: string;
+    branch_id?: string;
     order_code: string;
     status: string;
     grand_total_cop: number;
@@ -823,6 +824,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
       {openShiftModalOpen && (
         <OpenShiftModal
           isOpen={openShiftModalOpen}
+          branchId={order.branch_id}
           onClose={() => setOpenShiftModalOpen(false)}
           onSuccess={() => {
             setSuccessMessage(

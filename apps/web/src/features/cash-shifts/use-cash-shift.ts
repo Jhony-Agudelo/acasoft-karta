@@ -9,38 +9,42 @@ import {
   CloseCashShiftDto,
 } from '@restaurante-saas/shared';
 
-export function useCashShift() {
+export function useCashShift(customBranchId?: string) {
   const queryClient = useQueryClient();
-  const { currentBranchId } = useAuthStore();
-  const { hasModule } = useBranchCapabilities();
+  const { currentBranchId: storeBranchId } = useAuthStore();
+  const branchId = customBranchId || storeBranchId;
+  const { hasModule } = useBranchCapabilities(branchId || undefined);
   const isModuleActive = hasModule('payments.cash_shifts');
 
-  const currentShiftQueryKey = ['cash-shifts', 'current', currentBranchId];
+  const currentShiftQueryKey = ['cash-shifts', 'current', branchId];
 
   // Consulta del turno actualmente abierto en la sucursal activa
   const currentShiftQuery = useQuery<CurrentCashShift | null>({
     queryKey: currentShiftQueryKey,
     queryFn: async () => {
-      if (!currentBranchId || !isModuleActive) return null;
+      if (!branchId || !isModuleActive) return null;
       return apiClient.get<CurrentCashShift | null>(
-        `/branches/${currentBranchId}/cash-shifts/current`,
+        `/branches/${branchId}/cash-shifts/current`,
       );
     },
-    enabled: !!currentBranchId && isModuleActive,
+    enabled: !!branchId && isModuleActive,
     refetchInterval: 30000, // Refrescar cada 30s
   });
 
   // Apertura de turno con base inicial
   const openShiftMutation = useMutation({
-    mutationFn: async (dto: OpenCashShiftDto) => {
-      if (!currentBranchId) throw new Error('No hay sucursal seleccionada');
+    mutationFn: async (dto: OpenCashShiftDto & { targetBranchId?: string }) => {
+      const activeBranchId = dto.targetBranchId || branchId;
+      if (!activeBranchId) throw new Error('No hay sucursal seleccionada para aperturar el turno.');
+      const { targetBranchId, ...bodyDto } = dto;
       return apiClient.post<CurrentCashShift>(
-        `/branches/${currentBranchId}/cash-shifts/open`,
-        dto,
+        `/branches/${activeBranchId}/cash-shifts/open`,
+        bodyDto,
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: currentShiftQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['cash-shifts', 'current'] });
       queryClient.invalidateQueries({ queryKey: ['cash-shifts', 'history'] });
     },
   });
@@ -95,3 +99,4 @@ export function useCashShift() {
     isClosing: closeShiftMutation.isPending,
   };
 }
+

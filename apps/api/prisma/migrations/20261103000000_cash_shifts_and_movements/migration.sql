@@ -111,3 +111,4 @@ ALTER TABLE "payments" ADD CONSTRAINT "payments_cash_shift_id_fkey"
     FOREIGN KEY ("cash_shift_id") REFERENCES "cash_shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE INDEX IF NOT EXISTS "idx_payments_tenant_cash_shift" ON "payments" ("tenant_id", "cash_shift_id");
+

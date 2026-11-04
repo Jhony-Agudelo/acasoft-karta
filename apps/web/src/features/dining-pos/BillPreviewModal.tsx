@@ -11,8 +11,10 @@ import { useBrandStore } from '../../stores/brand.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { DiningAccountDetail } from './types';
 import { OpenShiftModal } from '../cash-shifts/OpenShiftModal';
+import { useCashShift } from '../cash-shifts/use-cash-shift';
 import {
   X,
+  Plus,
   Printer,
   CreditCard,
   Banknote,
@@ -100,6 +102,9 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
     queryFn: () => apiClient.get(`/accounts/${accountId}`),
     enabled: isOpen && !!accountId,
   });
+
+  // Estado del turno de caja para la sucursal de la cuenta
+  const { currentShift, isModuleActive: isCashShiftModuleActive } = useCashShift(account?.branch_id);
 
   // Inicializar propina y descuento
   useEffect(() => {
@@ -973,6 +978,26 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
                       />
                     </div>
 
+                    {/* Aviso si Efectivo requiere turno y no hay turno abierto */}
+                    {paymentMethod === 'CASH' && isCashShiftModuleActive && !currentShift && (
+                      <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span className="font-bold text-[11px]">
+                            Se requiere turno de caja abierto para registrar efectivo.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenShiftModalOpen(true)}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-sm transition shrink-0 cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Abrir Turno</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Cambio si es Efectivo */}
                     {paymentMethod === 'CASH' && (
                       <div className="space-y-1.5 pt-1">
@@ -1102,6 +1127,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
       {openShiftModalOpen && (
         <OpenShiftModal
           isOpen={openShiftModalOpen}
+          branchId={account?.branch_id}
           onClose={() => setOpenShiftModalOpen(false)}
           onSuccess={() => {
             setFeedback({

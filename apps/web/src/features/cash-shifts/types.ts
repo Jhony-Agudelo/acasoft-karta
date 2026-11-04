@@ -68,3 +68,4 @@ export interface CashShiftHistoryItem {
     payments: number;
   };
 }
+

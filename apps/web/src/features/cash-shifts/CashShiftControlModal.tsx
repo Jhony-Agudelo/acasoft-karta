@@ -53,7 +53,7 @@ export const CashShiftControlModal: React.FC<CashShiftControlModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fade-in">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fade-in">
         <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden border border-stone-200">
           {/* Header */}
           <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50 shrink-0">
@@ -268,3 +268,4 @@ export const CashShiftControlModal: React.FC<CashShiftControlModalProps> = ({
     </>
   );
 };
+

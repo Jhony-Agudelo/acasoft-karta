@@ -130,7 +130,20 @@ class ApiClient {
                 const errData = await retryRes.json().catch(() => ({ message: 'Error de servidor' }));
                 reject(new ApiError(retryRes.status, errData));
               } else {
-                resolve(await retryRes.json());
+                if (retryRes.status === 204) {
+                  resolve(null as T);
+                  return;
+                }
+                const retryText = await retryRes.text();
+                if (!retryText || !retryText.trim()) {
+                  resolve(null as T);
+                  return;
+                }
+                try {
+                  resolve(JSON.parse(retryText));
+                } catch {
+                  resolve(retryText as unknown as T);
+                }
               }
             } catch (e) {
               reject(e);
@@ -155,12 +168,21 @@ class ApiClient {
       throw new ApiError(response.status, errData);
     }
 
-    // 204 No Content
+    // 204 No Content o cuerpo vacío
     if (response.status === 204) {
-      return {} as T;
+      return null as T;
     }
 
-    return response.json();
+    const text = await response.text();
+    if (!text || !text.trim()) {
+      return null as T;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text as unknown as T;
+    }
   }
 
   public get<T = any>(endpoint: string, options?: RequestInit): Promise<T> {

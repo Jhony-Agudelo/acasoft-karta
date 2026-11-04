@@ -88,3 +88,4 @@
 3. **`ShiftMovementModal`**: Diálogo para registrar entradas de sencillo o salidas a proveedores de paso con selección de categoría y soporte.
 4. **`CloseShiftModal` (Arqueo Ciego)**: Diálogo con calculadora de billetes y monedas colombianas ($100k, $50k, $20k, $10k, $5k, $2k, $1k, $500, $200, $100, $50) para ingresar el conteo físico sin exponer las ventas ni el saldo esperado.
 5. **`CashShiftsHistoryPage`**: Vista de auditoría gerencial con comparativa de declared vs. expected, diferencias resaltadas y detalle de movimientos.
+

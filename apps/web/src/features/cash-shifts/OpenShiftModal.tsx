@@ -6,6 +6,7 @@ interface OpenShiftModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  branchId?: string;
 }
 
 const PRESET_AMOUNTS = [50000, 100000, 150000, 200000];
@@ -14,8 +15,9 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  branchId,
 }) => {
-  const { openShift, isOpening } = useCashShift();
+  const { openShift, isOpening } = useCashShift(branchId);
   const [openingCashCop, setOpeningCashCop] = useState<number>(100000);
   const [notes, setNotes] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -35,13 +37,19 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
       await openShift({
         opening_cash_cop: openingCashCop,
         notes: notes.trim() || undefined,
+        targetBranchId: branchId,
       });
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      setErrorMsg(
-        err.data?.message || err.message || 'Error al aperturar el turno de caja.',
-      );
+      const msg =
+        err?.data?.message ||
+        (Array.isArray(err?.data?.errors)
+          ? err.data.errors.map((e: any) => e.message).join(', ')
+          : null) ||
+        err?.message ||
+        'Error al aperturar el turno de caja.';
+      setErrorMsg(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
 
@@ -53,7 +61,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
     }).format(val);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fade-in">
       <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-stone-200">
         {/* Header */}
         <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
@@ -178,3 +186,4 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
     </div>
   );
 };
+

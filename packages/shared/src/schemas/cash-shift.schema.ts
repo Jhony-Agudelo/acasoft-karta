@@ -135,3 +135,4 @@ export function calculateCashShiftDifference(
 ): number {
   return declaredCashCop - expectedCashCop;
 }
+

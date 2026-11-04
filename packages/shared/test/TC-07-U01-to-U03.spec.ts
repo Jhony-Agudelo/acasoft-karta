@@ -169,3 +169,4 @@ describe('TC-07-U03: Evaluación Atómica de Dependencias para payments.cash_shi
     ).not.toThrow();
   });
 });
+

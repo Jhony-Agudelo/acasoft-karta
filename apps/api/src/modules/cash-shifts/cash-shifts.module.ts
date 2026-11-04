@@ -8,3 +8,4 @@ import { CashShiftsController } from './cash-shifts.controller';
   exports: [CashShiftsService],
 })
 export class CashShiftsModule {}
+
