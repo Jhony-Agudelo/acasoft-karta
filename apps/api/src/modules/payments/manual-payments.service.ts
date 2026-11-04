@@ -140,7 +140,39 @@ export class ManualPaymentsService {
         });
       }
 
-      // 10. Calcular cambio en efectivo si aplica
+      // 10. Calcular cambio en efectivo si aplica y validar turno de caja para efectivo
+      let cashShiftId: string | null = null;
+      if (dto.method === 'CASH') {
+        const cashShiftModuleActive = await this.isCashShiftModuleActive(
+          tx,
+          tenantId,
+          order.branch_id,
+        );
+        if (cashShiftModuleActive) {
+          const openShift = await tx.cashShift.findFirst({
+            where: {
+              tenant_id: tenantId,
+              branch_id: order.branch_id,
+              status: 'OPEN',
+            },
+          });
+          if (!openShift) {
+            throw new ConflictException({
+              errorCode: 'OPEN_CASH_SHIFT_REQUIRED',
+              message:
+                'Se requiere un turno de caja abierto en esta sucursal para recibir pagos en efectivo.',
+            });
+          }
+          cashShiftId = openShift.id;
+          await tx.cashShift.update({
+            where: { id: openShift.id },
+            data: {
+              cash_sales_cop: { increment: dto.amount_cop },
+            },
+          });
+        }
+      }
+
       const changeGivenCop =
         dto.method === 'CASH' && dto.cash_received_cop != null
           ? calculateCashChange(dto.amount_cop, dto.cash_received_cop)
@@ -152,6 +184,7 @@ export class ManualPaymentsService {
           tenant_id: tenantId,
           branch_id: order.branch_id,
           order_id: order.id,
+          cash_shift_id: cashShiftId,
           method: dto.method,
           amount_cop: dto.amount_cop,
           cash_received_cop: dto.cash_received_cop ?? null,
@@ -266,6 +299,28 @@ export class ManualPaymentsService {
           errorCode: 'PAYMENT_ALREADY_VOIDED',
           message: 'Este pago ya se encuentra anulado.',
         });
+      }
+
+      // 1B. Si fue cobro en efectivo vinculado a un turno de caja, validar que el turno no esté cerrado
+      if (payment.method === 'CASH' && payment.cash_shift_id) {
+        const shift = await tx.cashShift.findUnique({
+          where: { id: payment.cash_shift_id },
+        });
+        if (shift) {
+          if (shift.status === 'CLOSED') {
+            throw new ConflictException({
+              errorCode: 'CASH_SHIFT_ALREADY_CLOSED',
+              message:
+                'No se puede anular un pago en efectivo perteneciente a un turno de caja cerrado.',
+            });
+          }
+          await tx.cashShift.update({
+            where: { id: shift.id },
+            data: {
+              cash_sales_cop: { decrement: payment.amount_cop },
+            },
+          });
+        }
       }
 
       // 2A. Si el pago pertenece a una cuenta de salón (DiningAccount)
@@ -516,6 +571,38 @@ export class ManualPaymentsService {
         });
       }
 
+      let cashShiftId: string | null = null;
+      if (dto.method === 'CASH') {
+        const cashShiftModuleActive = await this.isCashShiftModuleActive(
+          tx,
+          tenantId,
+          account.branch_id,
+        );
+        if (cashShiftModuleActive) {
+          const openShift = await tx.cashShift.findFirst({
+            where: {
+              tenant_id: tenantId,
+              branch_id: account.branch_id,
+              status: 'OPEN',
+            },
+          });
+          if (!openShift) {
+            throw new ConflictException({
+              errorCode: 'OPEN_CASH_SHIFT_REQUIRED',
+              message:
+                'Se requiere un turno de caja abierto en esta sucursal para recibir pagos en efectivo.',
+            });
+          }
+          cashShiftId = openShift.id;
+          await tx.cashShift.update({
+            where: { id: openShift.id },
+            data: {
+              cash_sales_cop: { increment: dto.amount_cop },
+            },
+          });
+        }
+      }
+
       let changeGivenCop: number | null = null;
       let cashReceivedCop: number | null = null;
       const tendered = dto.cash_tendered_cop ?? dto.cash_received_cop;
@@ -549,6 +636,7 @@ export class ManualPaymentsService {
           branch_id: account.branch_id,
           account_id: account.id,
           order_id: null,
+          cash_shift_id: cashShiftId,
           method: dto.method,
           amount_cop: dto.amount_cop,
           cash_received_cop: cashReceivedCop,
@@ -646,5 +734,50 @@ export class ManualPaymentsService {
         idempotent_replayed: false,
       };
     });
+  }
+
+  /**
+   * Determina si el módulo payments.cash_shifts está activo para la sucursal/tenant.
+   */
+  private async isCashShiftModuleActive(
+    tx: any,
+    tenantId: string,
+    branchId: string,
+  ): Promise<boolean> {
+    const tenant = await tx.tenant.findUnique({
+      where: { id: tenantId },
+      select: { plan_id: true },
+    });
+    if (!tenant) return false;
+
+    const entitlement = await tx.planEntitlement.findUnique({
+      where: {
+        plan_id_module_key: {
+          plan_id: tenant.plan_id,
+          module_key: 'payments.cash_shifts',
+        },
+      },
+    });
+    if (!entitlement) return false;
+
+    const branchSetting = await tx.tenantModuleSetting.findUnique({
+      where: {
+        tenant_id_branch_id_module_key: {
+          tenant_id: tenantId,
+          branch_id: branchId,
+          module_key: 'payments.cash_shifts',
+        },
+      },
+    });
+    if (branchSetting) return branchSetting.enabled;
+
+    const tenantSetting = await tx.tenantModuleSetting.findFirst({
+      where: {
+        tenant_id: tenantId,
+        branch_id: null,
+        module_key: 'payments.cash_shifts',
+      },
+    });
+    return tenantSetting ? tenantSetting.enabled : false;
   }
 }

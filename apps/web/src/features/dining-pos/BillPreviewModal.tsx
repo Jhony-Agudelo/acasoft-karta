@@ -10,6 +10,7 @@ import {
 import { useBrandStore } from '../../stores/brand.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { DiningAccountDetail } from './types';
+import { OpenShiftModal } from '../cash-shifts/OpenShiftModal';
 import {
   X,
   Printer,
@@ -87,6 +88,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
 
   // Feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [openShiftModalOpen, setOpenShiftModalOpen] = useState(false);
 
   // Consulta de la cuenta
   const {
@@ -219,6 +221,16 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['dining-table-plan'] });
       onSuccess();
     } catch (err: any) {
+      const errorCode = err?.data?.errorCode || err?.response?.data?.errorCode;
+      if (errorCode === 'OPEN_CASH_SHIFT_REQUIRED') {
+        setFeedback({
+          type: 'error',
+          message: 'Se requiere un turno de caja abierto para registrar pagos en efectivo. Por favor abre el turno primero.',
+        });
+        setOpenShiftModalOpen(true);
+        return;
+      }
+
       const fieldErrors = err?.response?.data?.errors;
       let errorMsg =
         err?.response?.data?.message ||
@@ -1085,6 +1097,21 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal para abrir turno si el cobro en efectivo lo requiere */}
+      {openShiftModalOpen && (
+        <OpenShiftModal
+          isOpen={openShiftModalOpen}
+          onClose={() => setOpenShiftModalOpen(false)}
+          onSuccess={() => {
+            setFeedback({
+              type: 'success',
+              message: '¡Turno de caja abierto exitosamente! Ahora puedes confirmar el cobro.',
+            });
+            setOpenShiftModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

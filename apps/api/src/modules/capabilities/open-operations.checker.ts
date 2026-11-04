@@ -98,5 +98,24 @@ export class OpenOperationsChecker {
         });
       }
     }
+
+    if (moduleKey === 'payments.cash_shifts') {
+      const openShift = await (this.prisma as any).cashShift.findFirst({
+        where: {
+          tenant_id: tenantId,
+          status: 'OPEN',
+          ...(branchId ? { branch_id: branchId } : {}),
+        },
+        select: { id: true, shift_code: true },
+      });
+
+      if (openShift) {
+        throw new ConflictException({
+          errorCode: 'MODULE_HAS_OPEN_OPERATIONS',
+          moduleKey: 'payments.cash_shifts',
+          message: `No se puede desactivar el módulo de turnos de caja mientras exista un turno abierto (${openShift.shift_code}). Debe cerrarse primero.`,
+        });
+      }
+    }
   }
 }

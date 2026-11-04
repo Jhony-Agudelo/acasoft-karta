@@ -25,6 +25,7 @@ import {
   MapPin,
   Users,
   BarChart3,
+  Receipt,
   Lock,
   Bell,
   BellRing,
@@ -35,6 +36,7 @@ import {
 import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 import { useSseStream } from '../../hooks/use-sse-stream';
 import { playNewOrderChime } from '../../features/lite-order-panel/order-sound';
+import { CashShiftStatusBadge } from '../../features/cash-shifts/CashShiftStatusBadge';
 
 interface StaffNotification {
   id: string;
@@ -209,6 +211,7 @@ export const AppLayout: React.FC = () => {
   ];
 
   const adminNavItems = [
+    { label: 'Turnos y Arqueo Caja', path: '/admin/cash-shifts', icon: Receipt, module: 'payments.cash_shifts' },
     { label: 'Zonas de Domicilio', path: '/admin/delivery-zones', icon: MapPin },
     { label: 'Mesas & Portamesas', path: '/admin/dining-tables', icon: UtensilsCrossed, module: 'dining' },
     { label: 'Directorio de Clientes', path: '/admin/customers', icon: Users },
@@ -439,6 +442,9 @@ export const AppLayout: React.FC = () => {
               />
               <span>{isConnected ? 'Sincronizado en Vivo' : 'Conectando Stream'}</span>
             </div>
+
+            {/* Cash Shift Status Badge */}
+            <CashShiftStatusBadge />
           </div>
 
           <div className="flex items-center gap-4">
@@ -566,6 +572,7 @@ export const AppLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <CashShiftStatusBadge />
             {/* Mobile Notification Button */}
             <button
               type="button"

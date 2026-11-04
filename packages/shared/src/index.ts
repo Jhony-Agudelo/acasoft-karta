@@ -23,3 +23,4 @@ export * from './schemas/reporting-subscription.schema';
 export * from './constants/dining.machine';
 export * from './utils/consumption-split.calculator';
 export * from './schemas/dining.schema';
+export * from './schemas/cash-shift.schema';

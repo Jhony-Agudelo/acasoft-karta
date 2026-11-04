@@ -27,6 +27,7 @@ import { CustomersDirectoryPage } from './features/admin-customers/CustomersDire
 import { ReportsPage } from './features/reports/ReportsPage';
 import { DiningFloorPlanPage } from './features/dining-pos/DiningFloorPlanPage';
 import { DiningAdminSettings } from './features/dining-pos/DiningAdminSettings';
+import { CashShiftsHistoryPage } from './features/cash-shifts/CashShiftsHistoryPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   Truck,
@@ -147,6 +148,16 @@ export const App: React.FC = () => {
               <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER']}>
                 <CapabilityRoute module="dining" moduleName="Mesas y Portamesas QR">
                   <DiningAdminSettings />
+                </CapabilityRoute>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="admin/cash-shifts"
+            element={
+              <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER', 'PLATFORM_ADMIN']}>
+                <CapabilityRoute module="payments.cash_shifts" moduleName="Turnos y Arqueo de Caja">
+                  <CashShiftsHistoryPage />
                 </CapabilityRoute>
               </RoleRoute>
             }

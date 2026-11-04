@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { formatMoneyCop, PaymentMethod } from '@restaurante-saas/shared';
+import { OpenShiftModal } from '../cash-shifts/OpenShiftModal';
 
 interface PaymentRecord {
   id: string;
@@ -65,6 +66,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [openShiftModalOpen, setOpenShiftModalOpen] = useState<boolean>(false);
 
   // Anulación de Pago
   const [voidingPaymentId, setVoidingPaymentId] = useState<string | null>(null);
@@ -136,6 +138,14 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
         onSuccess();
       }, 500);
     } catch (err: any) {
+      const errorCode = err?.data?.errorCode || err?.response?.data?.errorCode;
+      if (errorCode === 'OPEN_CASH_SHIFT_REQUIRED') {
+        setErrorMessage(
+          'Se requiere un turno de caja abierto para registrar pagos en efectivo. Por favor abre el turno primero.',
+        );
+        setOpenShiftModalOpen(true);
+        return;
+      }
       setErrorMessage(
         err?.response?.data?.message || err?.message || 'Error al registrar el pago.',
       );
@@ -808,6 +818,20 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal para abrir turno de caja si es requerido */}
+      {openShiftModalOpen && (
+        <OpenShiftModal
+          isOpen={openShiftModalOpen}
+          onClose={() => setOpenShiftModalOpen(false)}
+          onSuccess={() => {
+            setSuccessMessage(
+              '¡Turno de caja abierto exitosamente! Ahora puedes confirmar el cobro en efectivo.',
+            );
+            setOpenShiftModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

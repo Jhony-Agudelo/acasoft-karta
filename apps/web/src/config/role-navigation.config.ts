@@ -29,6 +29,7 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/admin/delivery-zones',
     '/admin/dining-tables',
     '/admin/customers',
+    '/admin/cash-shifts',
     '/admin/capabilities',
     '/admin/settings',
   ],
@@ -47,6 +48,7 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/admin/delivery-zones',
     '/admin/dining-tables',
     '/admin/customers',
+    '/admin/cash-shifts',
   ],
   CASHIER: [
     '/dining',
@@ -69,6 +71,7 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/dashboard',
     '/admin/capabilities',
     '/admin/settings',
+    '/admin/cash-shifts',
     '/reports',
   ],
 };

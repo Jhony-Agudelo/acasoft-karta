@@ -55,6 +55,8 @@ model Tenant {
   dining_accounts        DiningAccount[]
   account_diners         AccountDiner[]
   consumption_assignments ConsumptionAssignment[]
+  cash_shifts            CashShift[]
+  cash_shift_movements   CashShiftMovement[]
 
   @@map("tenants")
 }
@@ -99,6 +101,8 @@ model Branch {
   dining_areas           DiningArea[]
   dining_tables          Table[]
   dining_accounts        DiningAccount[]
+  cash_shifts            CashShift[]
+  cash_shift_movements   CashShiftMovement[]
 
   @@unique([tenant_id, slug])
   @@map("branches")
@@ -130,6 +134,9 @@ model User {
   opened_dining_accounts   DiningAccount[]     @relation("DiningAccountOpener")
   closed_dining_accounts   DiningAccount[]     @relation("DiningAccountCloser")
   reopened_dining_accounts DiningAccount[]     @relation("DiningAccountReopener")
+  opened_cash_shifts       CashShift[]         @relation("CashShiftOpener")
+  closed_cash_shifts       CashShift[]         @relation("CashShiftCloser")
+  created_cash_shift_movements CashShiftMovement[] @relation("CashShiftMovementCreator")
 
   @@map("users")
 }
@@ -644,6 +651,7 @@ model Payment {
   branch_id         String    @db.Uuid
   order_id          String?   @db.Uuid
   account_id        String?   @db.Uuid
+  cash_shift_id     String?   @db.Uuid
   method            String    @db.VarChar(24)
   amount_cop        Int
   cash_received_cop Int?
@@ -661,12 +669,14 @@ model Payment {
   branch            Branch         @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   order             Order?         @relation(fields: [order_id], references: [id], onDelete: Cascade)
   account           DiningAccount? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  cash_shift        CashShift?     @relation(fields: [cash_shift_id], references: [id])
   creator           User           @relation("PaymentCreator", fields: [created_by], references: [id])
   voider            User?          @relation("PaymentVoider", fields: [voided_by], references: [id])
 
   @@unique([tenant_id, idempotency_key], name: "uq_payments_tenant_idempotency")
   @@index([tenant_id, order_id, status], name: "idx_payments_tenant_order")
   @@index([tenant_id, account_id, status], name: "idx_payments_tenant_account")
+  @@index([tenant_id, cash_shift_id], name: "idx_payments_tenant_cash_shift")
   @@map("payments")
 }
 
@@ -830,5 +840,64 @@ model ConsumptionAssignment {
   @@unique([diner_id, order_item_id], name: "uq_consumption_assignments_diner_item")
   @@map("consumption_assignments")
 }
+
+// -----------------------------------------------------------------------------
+// 8. GESTIÓN DE TURNOS Y ARQUEO CIEGO DE CAJA (FASE 07)
+// -----------------------------------------------------------------------------
+
+model CashShift {
+  id                          String    @id @default(uuid()) @db.Uuid
+  tenant_id                   String    @db.Uuid
+  branch_id                   String    @db.Uuid
+  shift_code                  String    @db.VarChar(32) // ej. #T-001
+  status                      String    @default("OPEN") @db.VarChar(20) // OPEN | CLOSED
+  opened_by                   String    @db.Uuid
+  opened_at                   DateTime  @default(now()) @db.Timestamptz(6)
+  opening_cash_cop            Int       @default(0)
+  cash_sales_cop              Int       @default(0)
+  cash_in_total_cop           Int       @default(0)
+  cash_out_total_cop          Int       @default(0)
+  expected_cash_cop           Int?
+  declared_cash_cop           Int?
+  difference_cop              Int?
+  denominations_snapshot_json Json?     @db.JsonB
+  closed_by                   String?   @db.Uuid
+  closed_at                   DateTime? @db.Timestamptz(6)
+  closing_notes               String?   @db.Text
+  created_at                  DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch    Branch              @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  opener    User                @relation("CashShiftOpener", fields: [opened_by], references: [id])
+  closer    User?               @relation("CashShiftCloser", fields: [closed_by], references: [id])
+  payments  Payment[]
+  movements CashShiftMovement[]
+
+  @@index([tenant_id, branch_id, status], name: "idx_cash_shifts_branch_status")
+  @@map("cash_shifts")
+}
+
+model CashShiftMovement {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenant_id     String   @db.Uuid
+  branch_id     String   @db.Uuid
+  shift_id      String   @db.Uuid
+  type          String   @db.VarChar(20) // CASH_IN | CASH_OUT
+  category      String   @db.VarChar(32) // SUPPLIER_PAYMENT | PETTY_EXPENSE | CHANGE_FUND | OTHER
+  amount_cop    Int
+  reason        String   @db.Text
+  reference_doc String?  @db.VarChar(120)
+  created_by    String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch  Branch    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  shift   CashShift @relation(fields: [shift_id], references: [id], onDelete: Cascade)
+  creator User      @relation("CashShiftMovementCreator", fields: [created_by], references: [id])
+
+  @@index([tenant_id, shift_id], name: "idx_cash_shift_movements_shift")
+  @@map("cash_shift_movements")
+}
+
 
 

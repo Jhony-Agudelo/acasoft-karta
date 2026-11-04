@@ -41,6 +41,16 @@ export class ModuleCapabilityGuard implements CanActivate {
       }
     }
 
+    if (!branchId && request.params?.shiftId) {
+      const shift = await this.prisma.cashShift.findUnique({
+        where: { id: request.params.shiftId },
+        select: { branch_id: true },
+      });
+      if (shift) {
+        branchId = shift.branch_id;
+      }
+    }
+
     if (!tenantId) {
       // Si la ruta requiere un módulo pero no hay contexto de tenant, se rechaza
       throw new ForbiddenException({
