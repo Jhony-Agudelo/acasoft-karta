@@ -19,6 +19,9 @@ export const CustomerSnapshotSchema = z.object({
   reference_notes: z.string().nullable().optional(),
   privacy_consent_at: z.string().optional(), // ISO-8601
   anonymized_at: z.string().nullable().optional(), // ISO-8601
+  payment_method: z.enum(['CASH', 'TRANSFER']).nullable().optional(),
+  cash_amount_delivered_cop: z.number().int().nullable().optional(),
+  change_to_give_cop: z.number().int().nullable().optional(),
 });
 
 export type CustomerSnapshot = z.infer<typeof CustomerSnapshotSchema>;

@@ -589,6 +589,9 @@ export class CreatePublicOrderService {
         neighborhood: dto.delivery?.neighborhood || null,
         reference_notes: dto.delivery?.reference_notes || null,
         privacy_consent_at: customer.privacy_consent_at.toISOString(),
+        payment_method: dto.payment_method || null,
+        cash_amount_delivered_cop: dto.cash_amount_delivered_cop ?? null,
+        change_to_give_cop: dto.change_to_give_cop ?? null,
       };
 
       // 11. Estado inicial e invariantes financieras
@@ -701,6 +704,9 @@ export class CreatePublicOrderService {
             }
           : null,
         notes: dto.notes,
+        paymentMethod: dto.payment_method || null,
+        cashAmountDeliveredCop: dto.cash_amount_delivered_cop ?? null,
+        changeToGiveCop: dto.change_to_give_cop ?? null,
       });
 
       const trackingUrl = `http://localhost:5173/t/${createdOrder.public_token}`;

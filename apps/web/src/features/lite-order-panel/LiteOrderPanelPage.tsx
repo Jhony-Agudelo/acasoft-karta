@@ -120,8 +120,13 @@ export const LiteOrderPanelPage: React.FC = () => {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['branch-orders', activeBranchId] });
       // Abrir WhatsApp con el link de confirmación hacia el cliente
-      if (data?.whatsapp_client_url) {
-        window.open(data.whatsapp_client_url, '_blank');
+      const waUrl = data?.whatsapp_client_url || data?.whatsapp_redirect_url;
+      if (waUrl) {
+        try {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        } catch {
+          // Si el navegador bloqueó el popup
+        }
       }
     },
   });
@@ -406,6 +411,25 @@ export const LiteOrderPanelPage: React.FC = () => {
                         <p className="text-xs text-amber-800 bg-amber-100/60 p-1.5 rounded-lg">
                           Nota: {customer.reference_notes}
                         </p>
+                      )}
+
+                      {customer.payment_method && (
+                        <div className={`p-2 rounded-lg text-xs font-semibold flex items-center justify-between gap-1.5 ${
+                          customer.payment_method === 'CASH'
+                            ? 'bg-amber-100/70 text-amber-900 border border-amber-200'
+                            : 'bg-sky-100/70 text-sky-900 border border-sky-200'
+                        }`}>
+                          <span>
+                            {customer.payment_method === 'CASH'
+                              ? `💵 Efectivo${customer.cash_amount_delivered_cop ? ` (Paga con: ${formatMoneyCop(customer.cash_amount_delivered_cop)})` : ''}`
+                              : '📱 Transferencia (Nequi/Bancolombia)'}
+                          </span>
+                          {customer.payment_method === 'CASH' && (customer.change_to_give_cop ?? 0) > 0 && (
+                            <span className="font-mono font-bold text-amber-950">
+                              Cambio: {formatMoneyCop(customer.change_to_give_cop)}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
 

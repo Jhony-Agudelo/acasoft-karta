@@ -153,6 +153,9 @@ export interface CustomerWhatsAppOrderParams {
     referenceNotes?: string | null;
   } | null;
   notes?: string | null;
+  paymentMethod?: 'CASH' | 'TRANSFER' | null;
+  cashAmountDeliveredCop?: number | null;
+  changeToGiveCop?: number | null;
 }
 
 /**
@@ -172,6 +175,9 @@ export function buildCustomerToBranchWhatsappUrl(params: CustomerWhatsAppOrderPa
     grandTotalCop,
     deliveryAddress,
     notes,
+    paymentMethod,
+    cashAmountDeliveredCop,
+    changeToGiveCop,
   } = params;
 
   const modalityMap: Record<FulfillmentType, string> = {
@@ -205,6 +211,15 @@ export function buildCustomerToBranchWhatsappUrl(params: CustomerWhatsAppOrderPa
     lines.push(`🛵 *Costo de domicilio:* ${formatMoneyCop(deliveryFeeCop)}`);
   }
   lines.push(`💰 *Total a pagar:* ${formatMoneyCop(grandTotalCop)}`);
+
+  if (paymentMethod === 'CASH') {
+    const cashStr = cashAmountDeliveredCop
+      ? ` (Paga con: ${formatMoneyCop(cashAmountDeliveredCop)} — Cambio a llevar: ${formatMoneyCop(changeToGiveCop || 0)})`
+      : ' (Pago exacto)';
+    lines.push(`💵 *Medio de pago:* Efectivo contra entrega${cashStr}`);
+  } else if (paymentMethod === 'TRANSFER') {
+    lines.push(`📱 *Medio de pago:* Transferencia — Te enviaré el comprobante por este chat para iniciar preparación.`);
+  }
 
   if (fulfillmentType === 'DELIVERY' && deliveryAddress) {
     lines.push('');

@@ -44,6 +44,7 @@ interface ManualPaymentModalProps {
     uncollected_amount_cop?: number;
     resolution_type?: string | null;
     resolution_reason?: string | null;
+    customer_snapshot_json?: any;
     payments?: PaymentRecord[];
   };
   onSuccess: () => void;
@@ -58,10 +59,15 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   const [activeTab, setActiveTab] = useState<'pay' | 'history' | 'resolve'>('pay');
 
   // Formulario de Cobro
-  const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const clientSnapshot = (order.customer_snapshot_json as any) || {};
   const balanceCop = Math.max(0, order.grand_total_cop - order.paid_total_cop);
+  const [method, setMethod] = useState<PaymentMethod>(() => {
+    return clientSnapshot?.payment_method === 'TRANSFER' ? 'MANUAL_TRANSFER' : 'CASH';
+  });
   const [amountCop, setAmountCop] = useState<number>(balanceCop);
-  const [cashReceivedCop, setCashReceivedCop] = useState<number>(balanceCop);
+  const [cashReceivedCop, setCashReceivedCop] = useState<number>(() => {
+    return clientSnapshot?.cash_amount_delivered_cop || balanceCop;
+  });
   const [externalReference, setExternalReference] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);

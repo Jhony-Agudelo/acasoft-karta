@@ -14,6 +14,8 @@ import {
   DollarSign,
   UtensilsCrossed,
   KeyRound,
+  CreditCard,
+  Coins,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useCartStore } from '../../stores/cart.store';
@@ -79,6 +81,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [referenceNotes, setReferenceNotes] = useState('');
   const [notes, setNotes] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
+
+  // Método de pago y cambio
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TRANSFER'>('CASH');
+  const [cashReceived, setCashReceived] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -193,6 +199,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
       }
 
+      if (!isDineIn) {
+        if (paymentMethod === 'CASH') {
+          const cashVal = cashReceived ? Number(cashReceived) : grandTotalCop;
+          if (cashVal < grandTotalCop) {
+            setErrorMessage(
+              `El valor con el que pagas en efectivo ($${cashVal.toLocaleString('es-CO')} COP) no puede ser menor al total a pagar ($${grandTotalCop.toLocaleString('es-CO')} COP).`,
+            );
+            setIsSubmitting(false);
+            return;
+          }
+          payload.payment_method = 'CASH';
+          payload.cash_amount_delivered_cop = cashVal;
+          payload.change_to_give_cop = cashVal - grandTotalCop;
+        } else {
+          payload.payment_method = 'TRANSFER';
+          payload.cash_amount_delivered_cop = null;
+          payload.change_to_give_cop = null;
+        }
+      }
+
       const res = await apiClient.post('/public/orders', payload, {
         headers: {
           'Idempotency-Key': idempotencyKey,
@@ -263,7 +289,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <p className="text-xs font-semibold text-stone-600 max-w-xs mx-auto">
                   {fulfillmentType === 'DINE_IN'
                     ? '¡Tu comanda ha sido enviada a la mesa! El mesero la confirmará en breve para pasarla a cocina.'
-                    : 'Tu pedido ha sido registrado en el sistema. Para que la cocina comience su preparación, envía el mensaje por WhatsApp:'}
+                    : paymentMethod === 'TRANSFER'
+                    ? 'Tu pedido ha sido registrado. Envía el mensaje al WhatsApp del restaurante y adjunta tu comprobante de pago para que la cocina inicie la preparación:'
+                    : 'Tu pedido ha sido registrado. Envía el mensaje al WhatsApp del restaurante para confirmar tu pedido y coordinar la entrega:'}
                 </p>
               </div>
 
@@ -277,16 +305,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span>Ver Estado en Vivo de tu Comanda</span>
                 </a>
               ) : (
-                <a
-                  href={createdOrder.whatsapp_redirect_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  id="btn-finish-whatsapp"
-                  className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2.5 transform active:scale-98"
-                >
-                  <Send className="h-4 w-4" />
-                  <span>Abrir WhatsApp para Confirmar</span>
-                </a>
+                <div className="space-y-2">
+                  <a
+                    href={createdOrder.whatsapp_redirect_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    id="btn-finish-whatsapp"
+                    className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2.5 transform active:scale-98"
+                  >
+                    <Send className="h-4 w-4" />
+                    <span>Abrir WhatsApp para Confirmar</span>
+                  </a>
+                  <p className="text-[11px] text-stone-500 max-w-xs mx-auto">
+                    📲 Se abrirá WhatsApp con la sede del restaurante para enviar el resumen de tu pedido.
+                  </p>
+                </div>
               )}
 
               {/* Link al Tracker */}
@@ -503,6 +536,113 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Selección de Método de Pago (Para Domicilio y Para Llevar) */}
+              {fulfillmentType !== 'DINE_IN' && (
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
+                  <label className="text-[11px] font-extrabold text-stone-600 uppercase tracking-wider block">
+                    ¿Cómo deseas pagar?
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('CASH')}
+                      className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition ${
+                        paymentMethod === 'CASH'
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Coins className="w-5 h-5" />
+                      <span>Efectivo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('TRANSFER')}
+                      className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition ${
+                        paymentMethod === 'TRANSFER'
+                          ? 'bg-sky-600 text-white border-sky-700 shadow-sm'
+                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      <CreditCard className="w-5 h-5" />
+                      <span>Transferencia</span>
+                    </button>
+                  </div>
+
+                  {paymentMethod === 'CASH' ? (
+                    <div className="space-y-2 pt-1 border-t border-stone-200/60">
+                      <label className="text-xs font-bold text-stone-800 flex justify-between">
+                        <span>¿Con cuánto vas a pagar?</span>
+                        <span className="text-[11px] text-stone-500 font-normal">Para que el domiciliario lleve tu cambio exacto</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={grandTotalCop}
+                        step={1000}
+                        value={cashReceived}
+                        onChange={(e) => setCashReceived(e.target.value)}
+                        placeholder={`Monto (ej. $${grandTotalCop.toLocaleString('es-CO')})`}
+                        className="w-full text-xs font-mono font-bold rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+
+                      {/* Chips rápidos */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCashReceived(String(grandTotalCop))}
+                          className="px-2.5 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-[11px] font-bold text-stone-800 transition"
+                        >
+                          Pago Exacto (${grandTotalCop.toLocaleString('es-CO')})
+                        </button>
+                        {grandTotalCop < 50000 && (
+                          <button
+                            type="button"
+                            onClick={() => setCashReceived('50000')}
+                            className="px-2.5 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-[11px] font-bold text-stone-800 transition"
+                          >
+                            $50.000
+                          </button>
+                        )}
+                        {grandTotalCop < 100000 && (
+                          <button
+                            type="button"
+                            onClick={() => setCashReceived('100000')}
+                            className="px-2.5 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-[11px] font-bold text-stone-800 transition"
+                          >
+                            $100.000
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Cálculo en vivo de cambio */}
+                      {cashReceived && Number(cashReceived) >= grandTotalCop && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between">
+                          <span>Cambio que debe llevar el domiciliario:</span>
+                          <strong className="text-sm font-mono text-emerald-700">
+                            ${(Number(cashReceived) - grandTotalCop).toLocaleString('es-CO')} COP
+                          </strong>
+                        </div>
+                      )}
+                      {cashReceived && Number(cashReceived) < grandTotalCop && (
+                        <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          El valor no puede ser menor al total ($${grandTotalCop.toLocaleString('es-CO')} COP)
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs space-y-1">
+                      <p className="font-bold">📱 Pagas por transferencia (Nequi, Daviplata o Bancolombia)</p>
+                      <p className="text-[11px] text-sky-800 leading-relaxed">
+                        Al enviar el pedido por WhatsApp podrás compartir tu comprobante de transferencia al restaurante para que la cocina inicie la preparación de inmediato.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Casilla de Consentimiento Ley 1581 */}
               <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">

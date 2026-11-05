@@ -26,6 +26,8 @@ import {
   Filter,
   Printer,
   Calendar,
+  X,
+  Coins,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -128,6 +130,14 @@ export const FullOrderPanelPage: React.FC = () => {
   const [cancellingOrder, setCancellingOrder] = useState<any | null>(null);
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<any | null>(null);
+
+  // Notificación de pedido procesado con WhatsApp
+  const [processedOrderNotice, setProcessedOrderNotice] = useState<{
+    orderCode: string;
+    waUrl: string;
+    customerName?: string;
+    phone?: string;
+  } | null>(null);
 
   // Sonido
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
@@ -232,8 +242,19 @@ export const FullOrderPanelPage: React.FC = () => {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['full-branch-orders'] });
-      if (data?.whatsapp_redirect_url) {
-        window.open(data.whatsapp_redirect_url, '_blank', 'noopener,noreferrer');
+      const waUrl = data?.whatsapp_redirect_url || data?.whatsapp_client_url;
+      if (waUrl) {
+        setProcessedOrderNotice({
+          orderCode: data.order_code,
+          waUrl,
+          customerName: data.customer_name || 'Cliente',
+          phone: data.customer_phone || '',
+        });
+        try {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        } catch {
+          // Si el navegador bloqueó el popup automático, el banner de abajo ofrece el botón manual
+        }
       }
     },
     onError: (err: any) => {
@@ -399,6 +420,43 @@ export const FullOrderPanelPage: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Banner de Confirmación y Enlace de WhatsApp con el Cliente */}
+      {processedOrderNotice && (
+        <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-emerald-950 animate-slide-up shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-emerald-950">
+                ¡Pedido #{processedOrderNotice.orderCode} procesado y enviado a Cocina!
+              </p>
+              <p className="text-[11px] text-emerald-800">
+                Abre el chat de WhatsApp con el cliente para confirmar la recepción y enviar el link de seguimiento.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={processedOrderNotice.waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-2xs"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>Abrir WhatsApp con el Cliente</span>
+            </a>
+            <button
+              onClick={() => setProcessedOrderNotice(null)}
+              className="p-1.5 rounded-lg text-emerald-800 hover:bg-emerald-200/60 transition"
+              title="Cerrar aviso"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pestañas Superiores con Contadores */}
       <div className="bg-white border-b border-stone-200 px-6 pt-3 shrink-0 overflow-x-auto">
@@ -745,6 +803,41 @@ export const FullOrderPanelPage: React.FC = () => {
                       </p>
                     )}
 
+                    {/* Medio de pago solicitado por el cliente */}
+                    {customerSnapshot.payment_method && (
+                      <div className={`p-2.5 rounded-2xl border text-xs font-semibold flex items-center justify-between gap-2 ${
+                        customerSnapshot.payment_method === 'CASH'
+                          ? 'bg-amber-50/80 border-amber-200/90 text-amber-950'
+                          : 'bg-sky-50/80 border-sky-200/90 text-sky-950'
+                      }`}>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {customerSnapshot.payment_method === 'CASH' ? (
+                            <>
+                              <Coins className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span className="truncate">
+                                <strong>Efectivo</strong>
+                                {customerSnapshot.cash_amount_delivered_cop ? (
+                                  <> (Paga: {formatMoneyCop(customerSnapshot.cash_amount_delivered_cop)})</>
+                                ) : ' (Exacto)'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 text-sky-600 shrink-0" />
+                              <span className="truncate">
+                                <strong>Transferencia</strong> (Nequi / Bancolombia)
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {customerSnapshot.payment_method === 'CASH' && (customerSnapshot.change_to_give_cop ?? 0) > 0 && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-200/90 text-amber-950 font-black text-[10px] shrink-0">
+                            Cambio: {formatMoneyCop(customerSnapshot.change_to_give_cop)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Desglose resumido de ítems */}
                     <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 text-xs">
                       {order.items?.map((it: any) => (
@@ -896,23 +989,43 @@ export const FullOrderPanelPage: React.FC = () => {
                     {/* Fila 2: Transición Operativa según estado actual */}
                     <div className="flex gap-2">
                       {order.status === 'REQUESTED' && (
-                        <div className="flex gap-2 w-full">
-                          <button
-                            onClick={() => processOrderMutation.mutate(order.id)}
-                            disabled={processOrderMutation.isPending}
-                            className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Procesar y Enviar a WhatsApp</span>
-                          </button>
-                          <button
-                            onClick={() => setCancellingOrder(order)}
-                            className="py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Rechazar o cancelar solicitud con motivo"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Rechazar</span>
-                          </button>
+                        <div className="flex flex-col gap-2 w-full">
+                          {customerSnapshot.payment_method === 'TRANSFER' && (
+                            <div className="p-2 rounded-xl bg-sky-50 border border-sky-200 text-[11px] text-sky-900 flex items-center justify-between gap-1.5">
+                              <span className="font-semibold">⚠️ Verificar comprobante antes de mandar a cocina</span>
+                              {(customerSnapshot.phone_e164 || order.customer?.phone_e164 || order.customer?.phone) && (
+                                <a
+                                  href={`https://wa.me/${(customerSnapshot.phone_e164 || order.customer?.phone_e164 || order.customer?.phone).replace(/\D/g, '')}?text=${encodeURIComponent(
+                                    `Hola ${customerSnapshot.name || order.customer?.name || 'Cliente'}, recibimos tu pedido #${order.order_code}. ¿Nos compartes el soporte de transferencia para que la cocina inicie la preparación?`,
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[10px] flex items-center gap-1 shrink-0 transition"
+                                >
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span>Pedir soporte</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex gap-2 w-full">
+                            <button
+                              onClick={() => processOrderMutation.mutate(order.id)}
+                              disabled={processOrderMutation.isPending}
+                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>{customerSnapshot.payment_method === 'TRANSFER' ? 'Confirmar y Enviar a Cocina' : 'Procesar y Enviar a WhatsApp'}</span>
+                            </button>
+                            <button
+                              onClick={() => setCancellingOrder(order)}
+                              className="py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Rechazar o cancelar solicitud con motivo"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              <span className="hidden sm:inline">Rechazar</span>
+                            </button>
+                          </div>
                         </div>
                       )}
 

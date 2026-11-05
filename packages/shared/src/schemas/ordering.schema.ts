@@ -106,6 +106,9 @@ export const CreatePublicOrderSchema = z
     table_pin: z.string().max(8).optional(),
     notes: z.string().trim().max(500).nullable().optional(),
     items: z.array(CreatePublicOrderItemSchema).min(1, 'El pedido debe contener al menos 1 producto'),
+    payment_method: z.enum(['CASH', 'TRANSFER']).nullable().optional(),
+    cash_amount_delivered_cop: z.number().int().nonnegative().nullable().optional(),
+    change_to_give_cop: z.number().int().nonnegative().nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.fulfillment_type === 'DELIVERY') {

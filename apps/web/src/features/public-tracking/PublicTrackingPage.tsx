@@ -256,26 +256,40 @@ export const PublicTrackingPage: React.FC = () => {
       {/* Contenedor Principal */}
       <main className="max-w-xl mx-auto px-4 py-6 space-y-4">
         {/* Tarjeta de Estado Actual */}
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200/60 shadow-inner">
-            <StatusIcon className="w-8 h-8" />
-          </div>
+        {(() => {
+          const isCompleted = ['DELIVERED', 'PICKED_UP', 'SERVED'].includes(order.status);
+          const isCancelled = ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'].includes(order.status);
+          return (
+            <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 text-center space-y-3">
+              <div
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto border shadow-inner ${
+                  isCompleted
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    : isCancelled
+                    ? 'bg-rose-50 text-rose-600 border-rose-200'
+                    : 'bg-amber-50 text-amber-600 border-amber-200/60'
+                }`}
+              >
+                <StatusIcon className="w-8 h-8" />
+              </div>
 
-          <div>
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${currentStatusInfo.color}`}>
-              {currentStatusInfo.label}
-            </span>
-            <p className="text-sm text-stone-600 mt-2 font-medium">
-              {currentStatusInfo.description}
-            </p>
-          </div>
+              <div>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${currentStatusInfo.color}`}>
+                  {currentStatusInfo.label}
+                </span>
+                <p className="text-sm text-stone-600 mt-2 font-medium">
+                  {currentStatusInfo.description}
+                </p>
+              </div>
 
-          <div className="pt-2 flex items-center justify-center gap-3 text-xs text-stone-400">
-            <span>Modalidad: <strong>{isPickup ? 'Para recoger' : 'Domicilio'}</strong></span>
-            <span>•</span>
-            <span>Hora: <strong>{new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</strong></span>
-          </div>
-        </div>
+              <div className="pt-2 flex items-center justify-center gap-3 text-xs text-stone-400">
+                <span>Modalidad: <strong>{isPickup ? 'Para recoger' : 'Domicilio'}</strong></span>
+                <span>•</span>
+                <span>Hora: <strong>{new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</strong></span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Aviso de Pedido Ajustado por el Restaurante */}
         {order.was_adjusted_by_restaurant && (
@@ -302,13 +316,20 @@ export const PublicTrackingPage: React.FC = () => {
                 const isLast = idx === order.timeline.length - 1;
                 const eventConfig = statusConfig[event.to_status] || { label: event.to_status };
 
+                const isCompleted = ['DELIVERED', 'PICKED_UP', 'SERVED'].includes(event.to_status) || ['DELIVERED', 'PICKED_UP', 'SERVED'].includes(order.status);
+                const isCancelled = ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'].includes(event.to_status);
+
                 return (
                   <div key={idx} className="relative">
                     {/* Punto indicador */}
                     <span
                       className={`absolute -left-[31px] top-0.5 w-4 h-4 rounded-full border-2 ${
                         isLast
-                          ? 'bg-amber-500 border-amber-200 ring-4 ring-amber-100 animate-pulse'
+                          ? isCompleted
+                            ? 'bg-emerald-500 border-emerald-300 ring-4 ring-emerald-100'
+                            : isCancelled
+                            ? 'bg-rose-500 border-rose-300 ring-4 ring-rose-100'
+                            : 'bg-amber-500 border-amber-200 ring-4 ring-amber-100 animate-pulse'
                           : 'bg-emerald-500 border-emerald-200'
                       }`}
                     />

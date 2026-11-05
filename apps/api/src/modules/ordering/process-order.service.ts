@@ -214,6 +214,7 @@ export class ProcessOrderService {
         grand_total_cop: updatedOrder.grand_total_cop,
         tracking_url: trackingUrl,
         whatsapp_client_url: whatsappClientUrl,
+        whatsapp_redirect_url: whatsappClientUrl,
         copyable_message: copyableMsg,
       };
     });
