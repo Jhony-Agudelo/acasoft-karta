@@ -423,26 +423,40 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                     className="w-48 sm:w-56 shrink-0 bg-white rounded-2xl border border-stone-200/90 shadow-xs hover:shadow-md transition cursor-pointer overflow-hidden flex flex-col justify-between snap-start group"
                   >
                     <div>
-                      {/* Foto del plato destacado */}
-                      <div className="relative h-28 sm:h-32 w-full bg-stone-100 overflow-hidden">
-                        <img
-                          src={
-                            prod.image_url ||
-                            'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
-                          }
-                          alt={prod.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                        />
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-orange-600 text-white text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
-                          <Flame className="h-2.5 w-2.5" />
-                          Top
-                        </span>
-                        {qtyInCart > 0 && (
-                          <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-stone-900 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md">
-                            {qtyInCart}
+                      {/* Foto o Banner con Emoji del plato destacado */}
+                      {prod.image_url ? (
+                        <div className="relative h-28 sm:h-32 w-full bg-stone-100 overflow-hidden">
+                          <img
+                            src={prod.image_url}
+                            alt={prod.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-orange-600 text-white text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+                            <Flame className="h-2.5 w-2.5" />
+                            Top
                           </span>
-                        )}
-                      </div>
+                          {qtyInCart > 0 && (
+                            <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-stone-900 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md">
+                              {qtyInCart}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative h-28 sm:h-32 w-full bg-gradient-to-tr from-orange-50 via-amber-50 to-orange-100 flex items-center justify-center border-b border-orange-100/60">
+                          <span className="text-4xl filter drop-shadow-xs">
+                            {getCategoryEmoji(prod.categoryName || '')}
+                          </span>
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-orange-600 text-white text-[9px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1">
+                            <Flame className="h-2.5 w-2.5" />
+                            Top
+                          </span>
+                          {qtyInCart > 0 && (
+                            <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-stone-900 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md">
+                              {qtyInCart}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       <div className="p-3 space-y-1">
                         <h3 className="font-extrabold text-xs text-stone-900 line-clamp-1 group-hover:text-orange-600 transition">
@@ -577,6 +591,79 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                       (prod.modifier_groups && prod.modifier_groups.length > 0) ||
                       (prod.variants && prod.variants.length > 0);
 
+                    // =========================================================
+                    // VARIANTE A: PLATO SIN FOTO (Aprovecha ancho completo)
+                    // =========================================================
+                    if (!prod.image_url) {
+                      return (
+                        <div
+                          key={prod.id}
+                          onClick={() => onSelectProduct(prod)}
+                          className={`bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition cursor-pointer flex flex-col justify-between group overflow-hidden w-full max-w-full space-y-2.5 ${
+                            isOutOfStock
+                              ? 'border-stone-200/60 bg-stone-50/70 opacity-70'
+                              : 'border-stone-200/90 hover:border-orange-300'
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-sm font-extrabold text-stone-900 group-hover:text-orange-600 transition leading-snug">
+                                {prod.name}
+                              </h3>
+                              {isOutOfStock ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-stone-200 text-stone-600 shrink-0">
+                                  Agotado
+                                </span>
+                              ) : hasModifiers ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200/60 whitespace-nowrap shrink-0">
+                                  Personalizable
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {prod.description && (
+                              <p className="text-[11px] text-stone-500 line-clamp-2 leading-snug">
+                                {prod.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Fila inferior: Precio y Botón Agregar */}
+                          <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                            <span className="text-xs sm:text-sm font-black text-stone-900 font-mono">
+                              ${prod.price_cop.toLocaleString('es-CO')} COP
+                            </span>
+
+                            {!isOutOfStock && canOrder && (
+                              <div>
+                                {qtyInCart > 0 ? (
+                                  <div className="h-7 px-2.5 rounded-xl bg-stone-900 text-white font-extrabold text-xs flex items-center gap-1 shadow-sm">
+                                    <span>{qtyInCart} en canasta</span>
+                                    <Plus className="h-3 w-3 stroke-[3]" />
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onSelectProduct(prod);
+                                    }}
+                                    className="px-3 py-1 rounded-xl bg-orange-50 hover:bg-orange-600 text-orange-700 hover:text-white font-extrabold text-xs border border-orange-200 hover:border-orange-600 transition flex items-center gap-1 shadow-2xs"
+                                  >
+                                    <Plus className="h-3 w-3 stroke-[3]" />
+                                    <span>Agregar</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // =========================================================
+                    // VARIANTE B: PLATO CON FOTO (Thumbnail acotado + Botón +)
+                    // =========================================================
                     return (
                       <div
                         key={prod.id}
@@ -622,10 +709,7 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                         <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24">
                           <div className="w-full h-full rounded-2xl bg-stone-100 overflow-hidden border border-stone-200/70 shadow-xs">
                             <img
-                              src={
-                                prod.image_url ||
-                                'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80'
-                              }
+                              src={prod.image_url}
                               alt={prod.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                             />

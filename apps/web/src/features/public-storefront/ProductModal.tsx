@@ -177,9 +177,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/60 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-stone-200 shadow-2xl w-full max-w-lg overflow-hidden animate-slide-up sm:animate-scale-in max-h-[90vh] flex flex-col">
-        {/* Header con foto opcional */}
-        <div className="relative">
-          {product.image_url ? (
+        {/* Header con foto o barra compacta */}
+        {product.image_url ? (
+          <div className="relative">
             <div className="h-36 sm:h-48 w-full max-h-[35vh] bg-stone-100 overflow-hidden">
               <img
                 src={product.image_url}
@@ -187,17 +187,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
-          ) : (
-            <div className="h-24 w-full bg-gradient-to-r from-orange-600 to-amber-500" />
-          )}
-
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/80 hover:bg-white text-stone-700 backdrop-blur-xs shadow-md transition"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-white/80 hover:bg-white text-stone-700 backdrop-blur-xs shadow-md transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/70">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-stone-500">
+              Personalizar plato
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
