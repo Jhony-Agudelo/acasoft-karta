@@ -442,10 +442,24 @@ export class CreatePublicOrderService {
         const chosenModifiers: OrderItemModifierSnapshot[] = [];
         const modifierPricings: Array<{ extra_price_cop: number }> = [];
 
+        // Normalizar modificadores deduciendo el group_id si viene ausente o con UUID nulo
+        const effectiveModifiers = (itemDto.modifiers || []).map((m) => {
+          if (m.group_id && m.group_id !== '00000000-0000-0000-0000-000000000000') {
+            return m;
+          }
+          const matchedPmg = product.modifier_groups.find((g) =>
+            g.group.options.some((opt) => opt.id === m.option_id),
+          );
+          return {
+            group_id: matchedPmg ? matchedPmg.group.id : m.group_id,
+            option_id: m.option_id,
+          };
+        });
+
         // Validar grupos de modificadores vinculados
         for (const pmg of product.modifier_groups) {
           const group = pmg.group;
-          const selectionsForGroup = (itemDto.modifiers || []).filter(
+          const selectionsForGroup = effectiveModifiers.filter(
             (m) => m.group_id === group.id,
           );
 
@@ -465,7 +479,7 @@ export class CreatePublicOrderService {
         }
 
         // Validar cada modificador seleccionado
-        for (const modSelection of itemDto.modifiers || []) {
+        for (const modSelection of effectiveModifiers) {
           const pmg = product.modifier_groups.find((g) => g.group.id === modSelection.group_id);
           if (!pmg) {
             throw new BadRequestException({

@@ -191,7 +191,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           variant_id: it.variant_id || null,
           quantity: it.quantity,
           modifiers: it.modifiers.map((m) => ({
-            group_id: (m as any).group_id || '00000000-0000-0000-0000-000000000000',
+            group_id: m.group_id || '00000000-0000-0000-0000-000000000000',
             option_id: m.id,
           })),
           notes: it.notes || null,
@@ -586,8 +586,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </label>
                       <input
                         type="number"
-                        min={grandTotalCop}
-                        step={1000}
+                        min={0}
+                        step="any"
                         value={cashReceived}
                         onChange={(e) => setCashReceived(e.target.value)}
                         placeholder={`Monto (ej. $${grandTotalCop.toLocaleString('es-CO')})`}
@@ -619,6 +619,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             className="px-2.5 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-[11px] font-bold text-stone-800 transition"
                           >
                             $100.000
+                          </button>
+                        )}
+                        {grandTotalCop < 200000 && (
+                          <button
+                            type="button"
+                            onClick={() => setCashReceived('200000')}
+                            className="px-2.5 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-[11px] font-bold text-stone-800 transition"
+                          >
+                            $200.000
                           </button>
                         )}
                       </div>

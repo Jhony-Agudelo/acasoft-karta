@@ -4,6 +4,7 @@ import { TaxProfileMode, TaxType, calculateLinePricing } from '@restaurante-saas
 
 export interface CartModifierItem {
   id: string;
+  group_id?: string;
   name: string;
   extra_price_cop: number;
 }

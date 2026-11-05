@@ -69,14 +69,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   );
 
   // Mapa de opciones elegidas por grupo: groupId -> array de optionIds
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>(() => {
+    const initial: Record<string, string[]> = {};
+    if (product.modifier_groups) {
+      for (const group of product.modifier_groups) {
+        if (group.is_required && group.min_selections >= 1 && group.max_selections === 1) {
+          const firstActive = group.options.find((o) => o.status === 'ACTIVE');
+          if (firstActive) {
+            initial[group.id] = [firstActive.id];
+          }
+        }
+      }
+    }
+    return initial;
+  });
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
 
   const selectedVariant = product.variants?.find((v) => v.id === selectedVariantId);
   const basePriceCop = selectedVariant ? selectedVariant.price_cop : product.price_cop;
 
-  // Flatten de modificadores seleccionados con su extra_price_cop
+  // Flatten de modificadores seleccionados con su extra_price_cop y group_id
   const selectedModifiersList: CartModifierItem[] = useMemo(() => {
     const list: CartModifierItem[] = [];
     if (!product.modifier_groups) return list;
@@ -88,6 +101,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         if (opt) {
           list.push({
             id: opt.id,
+            group_id: group.id,
             name: opt.name,
             extra_price_cop: opt.extra_price_cop,
           });
