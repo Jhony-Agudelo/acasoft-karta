@@ -160,4 +160,45 @@ describe('TC-03B-E01: Cierre del Hito 1 — Recorrido Completo Piloto Nivel 1 (C
     expect(backToAccepted.allowed).toBe(false);
     expect(backToAccepted.errorCode).toBe('ORDER_ALREADY_IN_TERMINAL_STATE');
   });
+
+  it('5. Cancelación de pedidos desde el panel con motivo obligatorio y validaciones fiscales', () => {
+    // 1. Cancelación rechazada si motivo es menor a 3 caracteres
+    const invalidShortReason = TransitionOrderStatusSchema.safeParse({
+      to_status: 'CANCELLED',
+      reason: 'no',
+    });
+    expect(invalidShortReason.success).toBe(false);
+
+    // 2. Cancelación válida con motivo de 3 o más caracteres
+    const validCancel = TransitionOrderStatusSchema.safeParse({
+      to_status: 'CANCELLED',
+      reason: 'Cliente canceló por WhatsApp antes de preparación',
+    });
+    expect(validCancel.success).toBe(true);
+    if (validCancel.success) {
+      expect(validCancel.data.to_status).toBe('CANCELLED');
+      expect(validCancel.data.reason).toBe('Cliente canceló por WhatsApp antes de preparación');
+    }
+
+    // 3. Máquina de estados: orden en PREPARING sin cobros puede cancelarse
+    const cancelPreparing = canTransitionOrderStatus({
+      fromStatus: 'PREPARING',
+      toStatus: 'CANCELLED',
+      origin: 'WHATSAPP',
+      fulfillmentType: 'DELIVERY',
+      paidTotalCop: 0,
+    });
+    expect(cancelPreparing.allowed).toBe(true);
+
+    // 4. Máquina de estados: orden con pagos activos bloquea cancelación sin resolución previa
+    const cancelWithPayments = canTransitionOrderStatus({
+      fromStatus: 'PREPARING',
+      toStatus: 'CANCELLED',
+      origin: 'WHATSAPP',
+      fulfillmentType: 'DELIVERY',
+      paidTotalCop: 35000,
+    });
+    expect(cancelWithPayments.allowed).toBe(false);
+    expect(cancelWithPayments.errorCode).toBe('ORDER_HAS_ACTIVE_PAYMENTS');
+  });
 });

@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   UtensilsCrossed,
   XCircle,
+  Ban,
   AlertTriangle,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
@@ -24,6 +25,7 @@ import { formatMoneyCop, OrderStatus } from '@restaurante-saas/shared';
 import { useSseStream } from '../../hooks/use-sse-stream';
 import { playNewOrderChime } from './order-sound';
 import { OrderAdjustModal, OrderItemAdjustState } from './OrderAdjustModal';
+import { CancelOrderModal } from '../full-order-panel/CancelOrderModal';
 
 export const LiteOrderPanelPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -38,9 +40,8 @@ export const LiteOrderPanelPage: React.FC = () => {
   // Modal de ajuste
   const [adjustingOrder, setAdjustingOrder] = useState<any | null>(null);
 
-  // Modal de rechazo
-  const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
-  const [rejectReason, setRejectReason] = useState<string>('');
+  // Modal de cancelación con motivo
+  const [cancellingOrder, setCancellingOrder] = useState<any | null>(null);
 
   // Notificación visual de copiado
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
@@ -431,15 +432,14 @@ export const LiteOrderPanelPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Botón Secundario: No puedo atender */}
+                      {/* Botón Secundario: No puedo atender / Cancelar solicitud */}
                       <button
-                        onClick={() => {
-                          setRejectingOrder(order);
-                          setRejectReason('');
-                        }}
-                        className="w-full text-center text-xs text-stone-400 hover:text-rose-600 transition-colors py-1"
+                        type="button"
+                        onClick={() => setCancellingOrder(order)}
+                        className="w-full text-center text-xs text-stone-400 hover:text-rose-600 transition-colors py-1 flex items-center justify-center gap-1 cursor-pointer font-medium"
                       >
-                        No puedo atender este pedido
+                        <Ban className="w-3 h-3 text-rose-500" />
+                        <span>No puedo atender / Cancelar solicitud</span>
                       </button>
                     </div>
                   </div>
@@ -624,6 +624,18 @@ export const LiteOrderPanelPage: React.FC = () => {
                           ✅ Marcar Entregado al Cliente
                         </button>
                       )}
+                      {/* Opción Cancelar Pedido Activo */}
+                      <div className="pt-2 flex items-center justify-end border-t border-stone-100">
+                        <button
+                          type="button"
+                          onClick={() => setCancellingOrder(order)}
+                          className="text-[11px] text-stone-400 hover:text-rose-600 font-bold flex items-center gap-1 transition-colors cursor-pointer py-0.5"
+                          title="Cancelar pedido con motivo"
+                        >
+                          <Ban className="w-3 h-3 text-rose-500" />
+                          <span>Cancelar Pedido</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -653,50 +665,18 @@ export const LiteOrderPanelPage: React.FC = () => {
         />
       )}
 
-      {/* Modal de Rechazo de Pedido */}
-      {rejectingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-rose-200">
-            <h3 className="text-lg font-bold text-rose-950 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
-              <span>Rechazar Pedido {rejectingOrder.order_code}</span>
-            </h3>
-            <p className="text-xs text-stone-600">
-              Indica el motivo del rechazo. Este motivo quedará registrado en la auditoría y se podrá comunicar al cliente por WhatsApp.
-            </p>
-            <input
-              type="text"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-rose-500"
-              placeholder="Ej. Cocina saturada, sin disponibilidad de repartidor..."
-            />
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setRejectingOrder(null)}
-                className="flex-1 py-2.5 rounded-xl border border-stone-200 font-medium text-stone-700 hover:bg-stone-50"
-              >
-                Volver
-              </button>
-              <button
-                type="button"
-                disabled={rejectReason.trim().length < 3}
-                onClick={async () => {
-                  await transitionMutation.mutateAsync({
-                    orderId: rejectingOrder.id,
-                    to_status: 'REJECTED',
-                    reason: rejectReason.trim(),
-                  });
-                  setRejectingOrder(null);
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 disabled:opacity-50"
-              >
-                Confirmar Rechazo
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Modal de Cancelación de Pedido con Motivo */}
+      {cancellingOrder && (
+        <CancelOrderModal
+          isOpen={!!cancellingOrder}
+          onClose={() => setCancellingOrder(null)}
+          order={cancellingOrder}
+          onSuccess={() => {
+            setCancellingOrder(null);
+            queryClient.invalidateQueries({ queryKey: ['lite-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['branch-orders'] });
+          }}
+        />
       )}
     </div>
   );

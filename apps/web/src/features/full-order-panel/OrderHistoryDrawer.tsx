@@ -58,10 +58,13 @@ export const OrderHistoryDrawer: React.FC<OrderHistoryDrawerProps> = ({
     order.status_events.forEach((ev: any) => {
       timelineEvents.push({
         type: 'STATUS',
-        title: `Estado cambiado a ${ev.to_status}`,
+        title: ev.to_status === 'CANCELLED' ? 'Pedido Cancelado' : `Estado cambiado a ${ev.to_status}`,
         description: ev.reason ? `Motivo: ${ev.reason}` : undefined,
         timestamp: ev.occurred_at,
-        badgeColor: 'bg-stone-100 text-stone-800 border-stone-200',
+        badgeColor:
+          ev.to_status === 'CANCELLED'
+            ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+            : 'bg-stone-100 text-stone-800 border-stone-200',
         actor: ev.actor_id ? `Usuario ID: ${ev.actor_id.slice(0, 8)}` : undefined,
       });
     });

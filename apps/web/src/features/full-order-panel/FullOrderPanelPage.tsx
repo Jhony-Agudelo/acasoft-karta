@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   UtensilsCrossed,
   XCircle,
+  Ban,
   AlertTriangle,
   CreditCard,
   Search,
@@ -34,6 +35,7 @@ import { OrderAdjustModal, OrderItemAdjustState } from '../lite-order-panel/Orde
 import { ManualPaymentModal } from './ManualPaymentModal';
 import { OrderHistoryDrawer } from './OrderHistoryDrawer';
 import { PrintReceiptModal } from '../../components/print/PrintReceiptModal';
+import { CancelOrderModal } from './CancelOrderModal';
 
 type PanelTab =
   | 'requests'
@@ -59,8 +61,7 @@ export const FullOrderPanelPage: React.FC = () => {
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any | null>(null);
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<any | null>(null);
   const [adjustingOrder, setAdjustingOrder] = useState<any | null>(null);
-  const [rejectingOrder, setRejectingOrder] = useState<any | null>(null);
-  const [rejectReason, setRejectReason] = useState<string>('');
+  const [cancellingOrder, setCancellingOrder] = useState<any | null>(null);
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<any | null>(null);
 
@@ -182,8 +183,7 @@ export const FullOrderPanelPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['full-branch-orders'] });
-      setRejectingOrder(null);
-      setRejectReason('');
+      setCancellingOrder(null);
     },
     onError: (err: any) => {
       alert(err?.response?.data?.message || err?.message || 'Error al cambiar el estado.');
@@ -597,6 +597,23 @@ export const FullOrderPanelPage: React.FC = () => {
                         )}
                       </div>
                     </div>
+
+                    {/* Aviso si la comanda está cancelada */}
+                    {order.status === 'CANCELLED' && (
+                      <div className="mt-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-start gap-2.5">
+                        <Ban className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="font-extrabold text-rose-950 block">Pedido Cancelado</span>
+                          {order.status_events?.slice().reverse().find((e: any) => e.to_status === 'CANCELLED')?.reason ? (
+                            <p className="text-[11px] text-rose-800 leading-relaxed">
+                              <strong>Motivo:</strong> &ldquo;{order.status_events.slice().reverse().find((e: any) => e.to_status === 'CANCELLED').reason}&rdquo;
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-rose-700 italic">Sin motivo especificado en el registro.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Botones de Acción de la Tarjeta */}
@@ -657,19 +674,40 @@ export const FullOrderPanelPage: React.FC = () => {
                       >
                         <Printer className="w-3.5 h-3.5 text-stone-600" />
                       </button>
+
+                      {/* Botón Cancelar Pedido (si no es estado terminal) */}
+                      {!['DELIVERED', 'PICKED_UP', 'SERVED', 'REJECTED', 'CANCELLED', 'EXPIRED_UNPROCESSED'].includes(order.status) && (
+                        <button
+                          onClick={() => setCancellingOrder(order)}
+                          className="p-2 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors shadow-2xs"
+                          title="Cancelar pedido con motivo"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Fila 2: Transición Operativa según estado actual */}
                     <div className="flex gap-2">
                       {order.status === 'REQUESTED' && (
-                        <button
-                          onClick={() => processOrderMutation.mutate(order.id)}
-                          disabled={processOrderMutation.isPending}
-                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Procesar y Enviar a WhatsApp</span>
-                        </button>
+                        <div className="flex gap-2 w-full">
+                          <button
+                            onClick={() => processOrderMutation.mutate(order.id)}
+                            disabled={processOrderMutation.isPending}
+                            className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Procesar y Enviar a WhatsApp</span>
+                          </button>
+                          <button
+                            onClick={() => setCancellingOrder(order)}
+                            className="py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Rechazar o cancelar solicitud con motivo"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            <span className="hidden sm:inline">Rechazar</span>
+                          </button>
+                        </div>
                       )}
 
                       {order.status === 'ACCEPTED' && (
@@ -851,6 +889,22 @@ export const FullOrderPanelPage: React.FC = () => {
           isOpen={!!selectedOrderForPrint}
           onClose={() => setSelectedOrderForPrint(null)}
           order={selectedOrderForPrint}
+        />
+      )}
+
+      {/* Modal de Cancelación de Pedido con Motivo */}
+      {cancellingOrder && (
+        <CancelOrderModal
+          isOpen={!!cancellingOrder}
+          onClose={() => setCancellingOrder(null)}
+          order={cancellingOrder}
+          onSuccess={() => {
+            setCancellingOrder(null);
+            queryClient.invalidateQueries({ queryKey: ['full-branch-orders'] });
+          }}
+          onOpenPayments={() => {
+            setSelectedOrderForPayment(cancellingOrder);
+          }}
         />
       )}
     </div>
