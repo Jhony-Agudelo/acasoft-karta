@@ -180,7 +180,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         {/* Header con foto opcional */}
         <div className="relative">
           {product.image_url ? (
-            <div className="h-44 w-full bg-stone-100 overflow-hidden">
+            <div className="h-36 sm:h-48 w-full max-h-[35vh] bg-stone-100 overflow-hidden">
               <img
                 src={product.image_url}
                 alt={product.name}

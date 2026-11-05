@@ -653,7 +653,7 @@ export const StorefrontPage: React.FC = () => {
 
                         {/* Foto miniatura o fallback */}
                         {prod.image_url ? (
-                          <div className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl bg-stone-100 overflow-hidden shrink-0 border border-stone-100">
+                          <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-xl bg-stone-100 overflow-hidden shrink-0 border border-stone-100">
                             <img
                               src={prod.image_url}
                               alt={prod.name}
@@ -661,7 +661,7 @@ export const StorefrontPage: React.FC = () => {
                             />
                           </div>
                         ) : (
-                          <div className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 font-black text-lg">
+                          <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 font-black text-lg">
                             {prod.name.charAt(0)}
                           </div>
                         )}

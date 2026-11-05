@@ -144,7 +144,7 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
 
   return (
     <div
-      className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans pb-32 selection:bg-orange-500 selection:text-white"
+      className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans pb-32 selection:bg-orange-500 selection:text-white w-full overflow-x-hidden"
       style={
         {
           '--brand-primary': brand.primary_color || '#ea580c',
@@ -155,8 +155,8 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
       {/* =========================================================
           1. TOP APP BAR (Sticky Mobile First Header)
           ========================================================= */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-xs">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-xs w-full">
+        <div className="max-w-4xl mx-auto px-3.5 sm:px-4 h-15 sm:h-16 flex items-center justify-between gap-2.5">
           {/* Logo y Nombre */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 shadow-xs overflow-hidden flex items-center justify-center shrink-0 border border-orange-200/60">
@@ -247,9 +247,9 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
       {/* =========================================================
           2. HERO PROMO & RESTAURANT BANNER
           ========================================================= */}
-      <div className="max-w-4xl mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-4xl mx-auto px-3.5 sm:px-4 pt-3 sm:pt-4 space-y-4 w-full">
         {/* Banner Cover con Imagen Gourmet */}
-        <div className="relative rounded-3xl overflow-hidden shadow-md h-44 sm:h-56 bg-stone-900">
+        <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md h-36 sm:h-48 md:h-56 bg-stone-900 w-full">
           <img
             src={
               brand.cover_url ||
@@ -482,7 +482,7 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
         {/* =========================================================
             4. BARRA STICKY DE CATEGORÍAS (Emojis + Conteo)
             ========================================================= */}
-        <div className="sticky top-16 z-30 bg-[#fcfbf9]/95 backdrop-blur-md py-2.5 border-b border-stone-200/60 -mx-4 px-4">
+        <div className="sticky top-15 sm:top-16 z-30 bg-[#fcfbf9]/95 backdrop-blur-md py-2 sm:py-2.5 border-b border-stone-200/60 -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
           <div className="flex gap-2 overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveCategoryId(null)}
@@ -581,7 +581,7 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                       <div
                         key={prod.id}
                         onClick={() => onSelectProduct(prod)}
-                        className={`bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs hover:shadow-md transition cursor-pointer flex gap-3.5 items-center justify-between group ${
+                        className={`bg-white rounded-2xl border p-3 sm:p-4 shadow-xs hover:shadow-md transition cursor-pointer flex gap-3 sm:gap-4 items-center justify-between group overflow-hidden w-full max-w-full ${
                           isOutOfStock
                             ? 'border-stone-200/60 bg-stone-50/70 opacity-70'
                             : 'border-stone-200/90 hover:border-orange-300'
@@ -606,12 +606,12 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                             </p>
                           )}
 
-                          <div className="flex items-center gap-2 mt-2.5">
-                            <span className="text-sm font-black text-stone-900 font-mono">
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs sm:text-sm font-black text-stone-900 font-mono">
                               ${prod.price_cop.toLocaleString('es-CO')} COP
                             </span>
                             {hasModifiers && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200/60">
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200/60 whitespace-nowrap">
                                 Personalizable
                               </span>
                             )}
@@ -619,8 +619,8 @@ export const DeliveryAppStorefront: React.FC<DeliveryAppStorefrontProps> = ({
                         </div>
 
                         {/* Foto del plato con botón + / Badge */}
-                        <div className="relative shrink-0">
-                          <div className="h-22 w-22 sm:h-24 sm:w-24 rounded-2xl bg-stone-100 overflow-hidden border border-stone-200/70 shadow-xs">
+                        <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24">
+                          <div className="w-full h-full rounded-2xl bg-stone-100 overflow-hidden border border-stone-200/70 shadow-xs">
                             <img
                               src={
                                 prod.image_url ||
