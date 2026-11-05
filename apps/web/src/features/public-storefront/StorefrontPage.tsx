@@ -5,6 +5,7 @@ import { apiClient } from '../../services/api-client';
 import { useCartStore } from '../../stores/cart.store';
 import { ProductModal } from './ProductModal';
 import { CheckoutModal } from './CheckoutModal';
+import { DeliveryAppStorefront } from './DeliveryAppStorefront';
 import {
   DIAN_FISCAL_DISCLAIMER_TEXT,
   TaxProfileMode,
@@ -174,6 +175,195 @@ export const StorefrontPage: React.FC = () => {
           <p className="text-xs font-bold text-stone-600">Cargando menú digital...</p>
         </div>
       </div>
+    );
+  }
+
+  // =========================================================================
+  // MODO DELIVERY & PEDIDOS POR WHATSAPP (Cuando NO es QR de mesa física)
+  // Brinda una experiencia de App de Comida moderna (estilo Rappi / Uber Eats)
+  // =========================================================================
+  if (!isTableQr) {
+    return (
+      <>
+        <DeliveryAppStorefront
+          tenant={tenant}
+          currentBranch={currentBranch}
+          branches={branches}
+          restaurantSlug={restaurantSlug}
+          categories={categories}
+          canOrder={canOrder}
+          cartItems={cartItems}
+          cartSummary={cartSummary}
+          onSelectProduct={(prod) => setSelectedProduct(prod)}
+          onOpenCart={() => setIsCartDrawerOpen(true)}
+          onOpenCheckout={() => setIsCheckoutModalOpen(true)}
+        />
+
+        {/* Modal de Detalle de Producto & Selección */}
+        {selectedProduct && (
+          <ProductModal
+            product={selectedProduct}
+            taxProfile={taxProfile}
+            canOrder={canOrder}
+            onClose={() => setSelectedProduct(null)}
+            onAddToCart={(item) => cartStore.addItem(storeKey, item, taxProfile)}
+          />
+        )}
+
+        {/* Drawer del Carrito */}
+        {isCartDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-stone-900/60 backdrop-blur-xs animate-fade-in">
+            <div className="w-full max-w-md bg-white h-full flex flex-col justify-between shadow-2xl animate-slide-left">
+              {/* Header del carrito */}
+              <div className="flex items-center justify-between p-5 border-b border-stone-100">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-orange-600" />
+                  <h3 className="font-extrabold text-stone-900 text-base">
+                    Mi Canasta de Pedido
+                  </h3>
+                  <span className="text-xs font-bold text-stone-400">
+                    ({cartSummary.totalItems} ítems)
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsCartDrawerOpen(false)}
+                  className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Lista de Ítems */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
+                {cartItems.map((it) => (
+                  <div
+                    key={it.id}
+                    className="p-3.5 rounded-2xl border border-stone-200/90 bg-stone-50/50 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-stone-900">{it.product_name}</h4>
+                        {it.variant_name && (
+                          <p className="text-[10px] text-stone-500">{it.variant_name}</p>
+                        )}
+                        {it.modifiers.length > 0 && (
+                          <p className="text-[10px] text-stone-500">
+                            + {it.modifiers.map((m) => m.name).join(', ')}
+                          </p>
+                        )}
+                        {it.notes && (
+                          <p className="text-[10px] text-amber-700 italic">"{it.notes}"</p>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold text-stone-900 font-mono">
+                        ${it.pricing.line_total_cop.toLocaleString('es-CO')}
+                      </span>
+                    </div>
+
+                    {/* Controles de cantidad */}
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        onClick={() => cartStore.removeItem(storeKey, it.id)}
+                        className="text-[10px] font-bold text-rose-600 hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                      <div className="flex items-center gap-2 border border-stone-200 rounded-lg bg-white px-2 py-0.5">
+                        <button
+                          onClick={() =>
+                            cartStore.updateQuantity(
+                              storeKey,
+                              it.id,
+                              it.quantity - 1,
+                              taxProfile,
+                            )
+                          }
+                          className="text-stone-500 hover:text-stone-900"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-xs font-bold w-4 text-center">
+                          {it.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            cartStore.updateQuantity(
+                              storeKey,
+                              it.id,
+                              it.quantity + 1,
+                              taxProfile,
+                            )
+                          }
+                          className="text-stone-500 hover:text-stone-900"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer con Total y Enviar a Checkout */}
+              <div className="p-5 border-t border-stone-100 bg-stone-50 space-y-3">
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-stone-500">
+                    <span>Subtotal productos</span>
+                    <span>${cartSummary.netSubtotalCop.toLocaleString('es-CO')}</span>
+                  </div>
+                  {cartSummary.taxAmountCop > 0 && (
+                    <div className="flex justify-between text-stone-500 text-[11px]">
+                      <span>Impuestos ({taxProfile.tax_type})</span>
+                      <span>${cartSummary.taxAmountCop.toLocaleString('es-CO')}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-black text-sm text-stone-900 pt-1 border-t border-stone-200">
+                    <span>Total estimado</span>
+                    <span>${cartSummary.lineTotalCop.toLocaleString('es-CO')} COP</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsCartDrawerOpen(false);
+                    setIsCheckoutModalOpen(true);
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-lg shadow-orange-600/25 transition flex items-center justify-center gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>Continuar con el pedido</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (window.confirm('¿Deseas vaciar todos los productos del pedido?')) {
+                      cartStore.clearCart(storeKey);
+                    }
+                  }}
+                  className="w-full text-center text-xs font-bold text-stone-400 hover:text-rose-600 transition pt-1"
+                >
+                  Vaciar canasta
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Checkout con Selección de Zona */}
+        {currentBranch && (
+          <CheckoutModal
+            isOpen={isCheckoutModalOpen}
+            onClose={() => setIsCheckoutModalOpen(false)}
+            branchId={currentBranch.id}
+            storeKey={storeKey}
+            restaurantSlug={restaurantSlug}
+            paymentInstructions={currentBranch.payment_instructions_json}
+            cartItems={cartItems}
+            cartSummary={cartSummary}
+            taxProfile={taxProfile}
+          />
+        )}
+      </>
     );
   }
 
