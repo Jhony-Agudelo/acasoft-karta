@@ -579,7 +579,6 @@ export const SettingsPage: React.FC = () => {
                   <option value="WAITER">Mesero / Salón</option>
                   <option value="KITCHEN">Cocinero / KDS</option>
                   <option value="BRANCH_MANAGER">Gerente de Sucursal</option>
-                  <option value="DISPATCH_DRIVER">Despachador de Domicilios</option>
                 </select>
               </div>
               <div>
