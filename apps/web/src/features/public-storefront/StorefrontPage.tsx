@@ -697,6 +697,8 @@ export const StorefrontPage: React.FC = () => {
           onClose={() => setIsCheckoutModalOpen(false)}
           branchId={currentBranch.id}
           storeKey={storeKey}
+          restaurantSlug={restaurantSlug}
+          paymentInstructions={currentBranch.payment_instructions_json}
           cartItems={cartItems}
           cartSummary={cartSummary}
           taxProfile={taxProfile}

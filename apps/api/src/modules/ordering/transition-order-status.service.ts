@@ -47,7 +47,7 @@ export class TransitionOrderStatusService {
         });
       }
 
-      // 2. Validar con la máquina de estados determinista
+      // 2. Validar con la máquina de estados determinista (secuencia estricta sin saltos de cocina o despacho)
       const validation = canTransitionOrderStatus({
         fromStatus: order.status as OrderStatus,
         toStatus: dto.to_status as OrderStatus,
@@ -56,6 +56,7 @@ export class TransitionOrderStatusService {
         requirePaymentBeforePreparation: order.require_payment_before_preparation,
         paymentStatus: order.payment_status as any,
         paidTotalCop: order.paid_total_cop,
+        strictSequential: true,
       });
 
       if (!validation.allowed) {

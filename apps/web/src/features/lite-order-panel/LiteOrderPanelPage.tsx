@@ -18,6 +18,7 @@ import {
   XCircle,
   Ban,
   AlertTriangle,
+  Flame,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -594,30 +595,18 @@ export const LiteOrderPanelPage: React.FC = () => {
                     {/* Botones de Avance de Estado */}
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
                       {order.status === 'ACCEPTED' && (
-                        <>
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: 'PREPARING',
-                              })
-                            }
-                            className="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs"
-                          >
-                            🍳 En Preparación
-                          </button>
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: isPickup ? 'READY' : 'OUT_FOR_DELIVERY',
-                              })
-                            }
-                            className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                          >
-                            {isPickup ? '📦 Listo para Recoger' : '🛵 Marcar En Camino'}
-                          </button>
-                        </>
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'PREPARING',
+                            })
+                          }
+                          className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs transition flex items-center justify-center gap-1.5"
+                        >
+                          <Flame className="w-4 h-4" />
+                          <span>👨‍🍳 Enviar a Cocina (Preparar)</span>
+                        </button>
                       )}
 
                       {order.status === 'PREPARING' && (
@@ -625,12 +614,13 @@ export const LiteOrderPanelPage: React.FC = () => {
                           onClick={() =>
                             transitionMutation.mutate({
                               orderId: order.id,
-                              to_status: isPickup ? 'READY' : 'OUT_FOR_DELIVERY',
+                              to_status: 'READY',
                             })
                           }
-                          className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
                         >
-                          {isPickup ? '📦 Marcar Listo' : '🛵 Enviar a Domicilio'}
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Marcar Listo en Cocina</span>
                         </button>
                       )}
 
@@ -664,6 +654,21 @@ export const LiteOrderPanelPage: React.FC = () => {
                       )}
 
                       {order.status === 'READY' && !isPickup && !isDineIn && (
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'OUT_FOR_DELIVERY',
+                            })
+                          }
+                          className="flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                          <Truck className="w-4 h-4" />
+                          <span>🛵 Despachar Domicilio</span>
+                        </button>
+                      )}
+
+                      {order.status === 'OUT_FOR_DELIVERY' && (
                         <button
                           onClick={() =>
                             transitionMutation.mutate({

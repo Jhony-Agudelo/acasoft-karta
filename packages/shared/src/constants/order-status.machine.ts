@@ -55,6 +55,7 @@ export interface OrderTransitionInput {
   requirePaymentBeforePreparation?: boolean;
   paymentStatus?: OrderPaymentStatus;
   paidTotalCop?: number;
+  strictSequential?: boolean;
 }
 
 export interface OrderTransitionResult {
@@ -196,6 +197,44 @@ export function canTransitionOrder(input: OrderTransitionInput): OrderTransition
   // Si fromStatus es REQUESTED o RECEIVED y pasa a ACCEPTED: es válido
   if ((fromStatus === 'REQUESTED' || fromStatus === 'RECEIVED') && toStatus === 'ACCEPTED') {
     return { allowed: true };
+  }
+
+  // Validación estricta de secuencia operativa sin saltarse fases de cocina o despacho
+  if (input.strictSequential) {
+    if (
+      (toStatus === 'OUT_FOR_DELIVERY' || toStatus === 'PICKED_UP' || toStatus === 'SERVED') &&
+      fromStatus !== 'READY'
+    ) {
+      return {
+        allowed: false,
+        errorCode: 'ORDER_NOT_READY',
+        message: `El pedido debe ser preparado por la cocina y estar en estado 'READY' antes de poder ser despachado, entregado o servido. Estado actual: '${fromStatus}'.`,
+      };
+    }
+
+    if (toStatus === 'DELIVERED' && fromStatus !== 'OUT_FOR_DELIVERY') {
+      return {
+        allowed: false,
+        errorCode: 'ORDER_NOT_OUT_FOR_DELIVERY',
+        message: `El pedido debe estar despachado en camino ('OUT_FOR_DELIVERY') antes de marcarse como entregado. Estado actual: '${fromStatus}'.`,
+      };
+    }
+
+    if (toStatus === 'READY' && fromStatus !== 'PREPARING') {
+      return {
+        allowed: false,
+        errorCode: 'ORDER_NOT_IN_PREPARATION',
+        message: `El pedido debe estar en preparación ('PREPARING') antes de marcarse como listo en cocina. Estado actual: '${fromStatus}'.`,
+      };
+    }
+
+    if (toStatus === 'PREPARING' && fromStatus !== 'ACCEPTED') {
+      return {
+        allowed: false,
+        errorCode: 'ORDER_NOT_ACCEPTED',
+        message: `El pedido debe ser aceptado ('ACCEPTED') antes de iniciar la preparación. Estado actual: '${fromStatus}'.`,
+      };
+    }
   }
 
   // Usamos el flujo activo personalizado si existe, o el canónico por defecto

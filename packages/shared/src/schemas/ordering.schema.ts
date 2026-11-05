@@ -109,6 +109,7 @@ export const CreatePublicOrderSchema = z
     payment_method: z.enum(['CASH', 'TRANSFER']).nullable().optional(),
     cash_amount_delivered_cop: z.number().int().nonnegative().nullable().optional(),
     change_to_give_cop: z.number().int().nonnegative().nullable().optional(),
+    transfer_channel: z.string().trim().max(80).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.fulfillment_type === 'DELIVERY') {

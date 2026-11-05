@@ -68,6 +68,9 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   const [cashReceivedCop, setCashReceivedCop] = useState<number>(() => {
     return clientSnapshot?.cash_amount_delivered_cop || balanceCop;
   });
+  const [selectedDigitalChannel, setSelectedDigitalChannel] = useState<string>(() => {
+    return clientSnapshot?.transfer_channel || 'NEQUI';
+  });
   const [externalReference, setExternalReference] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -539,6 +542,37 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                   )}
 
                   {/* Referencia o Comprobante (Transferencia / Datáfono) */}
+                  {method === 'MANUAL_TRANSFER' && (
+                    <div className="space-y-2 p-3 rounded-2xl bg-sky-50/70 border border-sky-200/80">
+                      <label className="text-xs font-extrabold text-sky-950 block">
+                        Canal Digital por el que se Recibió el Pago:
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: 'NEQUI', label: '📱 Nequi' },
+                          { id: 'DAVIPLATA', label: '📱 Daviplata' },
+                          { id: 'BRE_B', label: '🔑 Llave Bre-B' },
+                          { id: 'BANCOLOMBIA', label: '🏦 Bancolombia' },
+                          { id: 'TRANSFIYA', label: '⚡ Transfiya' },
+                          { id: 'OTRO', label: '💳 Otro' },
+                        ].map((ch) => (
+                          <button
+                            key={ch.id}
+                            type="button"
+                            onClick={() => setSelectedDigitalChannel(ch.id)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition ${
+                              selectedDigitalChannel === ch.id
+                                ? 'bg-sky-700 text-white border-sky-800 shadow-2xs'
+                                : 'bg-white text-sky-900 border-sky-200 hover:bg-sky-100/60'
+                            }`}
+                          >
+                            {ch.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {(method === 'MANUAL_TRANSFER' || method === 'POS_TERMINAL') && (
                     <div>
                       <label className="text-xs font-bold text-stone-700 block mb-1">
@@ -548,7 +582,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                         type="text"
                         value={externalReference}
                         onChange={(e) => setExternalReference(e.target.value)}
-                        placeholder="Ej. Nequi #M12849, Lote 048"
+                        placeholder={method === 'MANUAL_TRANSFER' ? "Ej. # Comprobante M12849" : "Ej. Lote 048, Aprob 8921"}
                         className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       />
                     </div>
@@ -616,7 +650,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                                 : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             }`}
                           >
-                            {pay.method}
+                            {pay.method === 'CASH' ? '💵 Efectivo' : pay.method === 'POS_TERMINAL' ? '💳 Datáfono' : '📱 Transferencia'}
                           </span>
                           <span className="text-xs font-bold text-stone-900">
                             {formatMoneyCop(pay.amount_cop)}

@@ -22,6 +22,7 @@ export const CustomerSnapshotSchema = z.object({
   payment_method: z.enum(['CASH', 'TRANSFER']).nullable().optional(),
   cash_amount_delivered_cop: z.number().int().nullable().optional(),
   change_to_give_cop: z.number().int().nullable().optional(),
+  transfer_channel: z.string().nullable().optional(),
 });
 
 export type CustomerSnapshot = z.infer<typeof CustomerSnapshotSchema>;

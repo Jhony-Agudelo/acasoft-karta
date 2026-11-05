@@ -156,6 +156,7 @@ export interface CustomerWhatsAppOrderParams {
   paymentMethod?: 'CASH' | 'TRANSFER' | null;
   cashAmountDeliveredCop?: number | null;
   changeToGiveCop?: number | null;
+  transferChannel?: string | null;
 }
 
 /**
@@ -178,6 +179,7 @@ export function buildCustomerToBranchWhatsappUrl(params: CustomerWhatsAppOrderPa
     paymentMethod,
     cashAmountDeliveredCop,
     changeToGiveCop,
+    transferChannel,
   } = params;
 
   const modalityMap: Record<FulfillmentType, string> = {
@@ -352,5 +354,56 @@ export function buildBranchToCustomerStatusWhatsapp(params: {
     whatsapp_client_url,
     copyable_message,
   };
+}
+
+export interface BranchRequestTransferParams {
+  customerPhoneE164: string;
+  customerName: string;
+  orderCode: string;
+  grandTotalCop: number;
+  channels?: Array<{
+    provider: string;
+    account_number_or_key: string;
+    account_holder_name?: string;
+    notes?: string;
+  }>;
+}
+
+/**
+ * Genera el enlace de WhatsApp para que el cajero le solicite el comprobante de transferencia al cliente,
+ * listando los canales de pago oficiales configurados en la sede (Nequi, Daviplata, Bre-B, Bancolombia).
+ */
+export function buildBranchRequestTransferWhatsappUrl(params: BranchRequestTransferParams): string {
+  const { customerPhoneE164, customerName, orderCode, grandTotalCop, channels = [] } = params;
+  const lines: string[] = [
+    'Hola *' + (customerName || 'Cliente') + '*, recibimos tu pedido *#' + orderCode + '* por valor de *' + formatMoneyCop(grandTotalCop) + '*.',
+    '',
+    'Para que la cocina inicie la preparación de inmediato, por favor realiza la transferencia a cualquiera de nuestros canales oficiales y compártenos el comprobante por este chat:',
+    '',
+  ];
+
+  if (channels.length > 0) {
+    for (const ch of channels) {
+      const providerLabel =
+        ch.provider === 'NEQUI'
+          ? '📱 Nequi'
+          : ch.provider === 'DAVIPLATA'
+          ? '📱 Daviplata'
+          : ch.provider === 'BRE_B'
+          ? '🔑 Llave Bre-B'
+          : ch.provider === 'BANCOLOMBIA'
+          ? '🏦 Bancolombia Ahorros'
+          : '💳 Transferencia';
+      const holder = ch.account_holder_name ? ' (' + ch.account_holder_name + ')' : '';
+      lines.push('• ' + providerLabel + ': *' + ch.account_number_or_key + '*' + holder);
+    }
+  } else {
+    lines.push('• Canales disponibles: Nequi / Daviplata / Llave Bre-B / Bancolombia.');
+  }
+
+  lines.push('');
+  lines.push('¡Muchas gracias!');
+
+  return buildWhatsAppLink(customerPhoneE164, lines.join('\n'));
 }
 

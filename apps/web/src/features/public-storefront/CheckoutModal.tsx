@@ -31,6 +31,8 @@ interface CheckoutModalProps {
   onClose: () => void;
   branchId: string;
   storeKey: string;
+  restaurantSlug?: string;
+  paymentInstructions?: any;
   cartItems: CartItem[];
   cartSummary: {
     totalItems: number;
@@ -62,6 +64,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   branchId,
   storeKey,
+  restaurantSlug,
+  paymentInstructions,
   cartItems,
   cartSummary,
   tableQrInfo,
@@ -85,6 +89,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Método de pago y cambio
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TRANSFER'>('CASH');
   const [cashReceived, setCashReceived] = useState<string>('');
+  const [selectedTransferChannel, setSelectedTransferChannel] = useState<string>('Nequi');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

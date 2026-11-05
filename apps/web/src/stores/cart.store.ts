@@ -50,6 +50,7 @@ interface CartStoreState {
   removeItem: (storeKey: string, itemId: string) => void;
 
   clearCart: (storeKey: string) => void;
+  clearAllTakeoutCarts: (restaurantSlug?: string) => void;
 
   getCartItems: (storeKey: string) => CartItem[];
 
@@ -187,6 +188,20 @@ export const useCartStore = create<CartStoreState>()(
         const currentCarts = get().cartsByStore;
         const { [storeKey]: _, ...rest } = currentCarts;
         set({ cartsByStore: rest });
+      },
+
+      clearAllTakeoutCarts: (restaurantSlug?: string) => {
+        const currentCarts = get().cartsByStore;
+        const nextCarts = { ...currentCarts };
+        for (const key of Object.keys(nextCarts)) {
+          if (
+            key.endsWith('/takeout') &&
+            (!restaurantSlug || key.startsWith(`${restaurantSlug}/`))
+          ) {
+            delete nextCarts[key];
+          }
+        }
+        set({ cartsByStore: nextCarts });
       },
 
       getCartItems: (storeKey) => {

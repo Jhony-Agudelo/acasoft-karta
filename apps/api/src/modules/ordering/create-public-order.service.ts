@@ -592,6 +592,7 @@ export class CreatePublicOrderService {
         payment_method: dto.payment_method || null,
         cash_amount_delivered_cop: dto.cash_amount_delivered_cop ?? null,
         change_to_give_cop: dto.change_to_give_cop ?? null,
+        transfer_channel: dto.transfer_channel || null,
       };
 
       // 11. Estado inicial e invariantes financieras

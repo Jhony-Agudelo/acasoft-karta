@@ -151,6 +151,14 @@ export class BranchOrderController {
         include: {
           items: true,
           customer: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              phone_whatsapp_e164: true,
+              channel_policies: true,
+            },
+          },
           payments: {
             select: {
               id: true,

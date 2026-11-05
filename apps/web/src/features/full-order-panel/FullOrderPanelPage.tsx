@@ -28,10 +28,11 @@ import {
   Calendar,
   X,
   Coins,
+  Flame,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
-import { formatMoneyCop, OrderStatus, OrderPaymentStatus } from '@restaurante-saas/shared';
+import { formatMoneyCop, OrderStatus, OrderPaymentStatus, buildBranchRequestTransferWhatsappUrl } from '@restaurante-saas/shared';
 import { useSseStream } from '../../hooks/use-sse-stream';
 import { playNewOrderChime } from '../lite-order-panel/order-sound';
 import { OrderAdjustModal, OrderItemAdjustState } from '../lite-order-panel/OrderAdjustModal';
@@ -323,6 +324,45 @@ export const FullOrderPanelPage: React.FC = () => {
     setCopiedOrderId(order.id);
     setTimeout(() => setCopiedOrderId(null), 2500);
   };
+
+  // Consolidado financiero de pagos en pantalla (Efectivo vs Canales Digitales)
+  const consolidatedTotals = useMemo(() => {
+    let cashTotal = 0;
+    let transferTotal = 0;
+    const byChannel: Record<string, number> = {
+      Nequi: 0,
+      Daviplata: 0,
+      'Bre-B / Llave': 0,
+      Bancolombia: 0,
+      Otros: 0,
+    };
+
+    for (const order of orders) {
+      if (order.payments && order.payments.length > 0) {
+        for (const p of order.payments) {
+          if (p.status !== 'APPROVED') continue;
+          if (p.method === 'CASH') {
+            cashTotal += p.amount_cop;
+          } else if (p.method === 'MANUAL_TRANSFER') {
+            transferTotal += p.amount_cop;
+            const ref = (p.reference_note || '').toUpperCase();
+            if (ref.includes('NEQUI')) byChannel.Nequi += p.amount_cop;
+            else if (ref.includes('DAVIPLATA')) byChannel.Daviplata += p.amount_cop;
+            else if (ref.includes('BRE_B') || ref.includes('LLAVE')) byChannel['Bre-B / Llave'] += p.amount_cop;
+            else if (ref.includes('BANCOLOMBIA')) byChannel.Bancolombia += p.amount_cop;
+            else byChannel.Otros += p.amount_cop;
+          }
+        }
+      }
+    }
+
+    return {
+      cashTotal,
+      transferTotal,
+      grandTotal: cashTotal + transferTotal,
+      byChannel,
+    };
+  }, [orders]);
 
   return (
     <div className="flex flex-col h-full bg-[#faf8f5] text-stone-800">
@@ -644,6 +684,35 @@ export const FullOrderPanelPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Barra de Consolidado de Pagos de las Órdenes en Pantalla */}
+      <div className="bg-white/90 backdrop-blur-xs border-b border-stone-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-stone-700 flex items-center gap-1.5">
+            <Coins className="w-4 h-4 text-emerald-600" />
+            <span>Recaudo en Pantalla:</span>
+          </span>
+          <span className="font-black text-stone-900 bg-stone-100 px-2.5 py-1 rounded-lg">
+            Total: {formatMoneyCop(consolidatedTotals.grandTotal)}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 font-medium">
+          <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 font-bold flex items-center gap-1">
+            💵 Efectivo: <strong>{formatMoneyCop(consolidatedTotals.cashTotal)}</strong>
+          </span>
+          <span className="px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-950 font-bold flex items-center gap-1">
+            📱 Transferencias: <strong>{formatMoneyCop(consolidatedTotals.transferTotal)}</strong>
+          </span>
+          {Object.entries(consolidatedTotals.byChannel).map(([ch, val]) => {
+            const amount = Number(val) || 0;
+            return amount > 0 ? (
+              <span key={ch} className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[10px] font-semibold">
+                {ch}: {formatMoneyCop(amount)}
+              </span>
+            ) : null;
+          })}
+        </div>
+      </div>
       {/* Barra de Rango de Fecha Personalizada si CUSTOM está seleccionado */}
       {dateFilter === 'CUSTOM' && (
         <div className="px-6 py-2 bg-amber-50/60 border-b border-amber-200/60 flex flex-wrap items-center gap-3 text-xs shrink-0">
@@ -995,15 +1064,19 @@ export const FullOrderPanelPage: React.FC = () => {
                               <span className="font-semibold">⚠️ Verificar comprobante antes de mandar a cocina</span>
                               {(customerSnapshot.phone_e164 || order.customer?.phone_e164 || order.customer?.phone) && (
                                 <a
-                                  href={`https://wa.me/${(customerSnapshot.phone_e164 || order.customer?.phone_e164 || order.customer?.phone).replace(/\D/g, '')}?text=${encodeURIComponent(
-                                    `Hola ${customerSnapshot.name || order.customer?.name || 'Cliente'}, recibimos tu pedido #${order.order_code}. ¿Nos compartes el soporte de transferencia para que la cocina inicie la preparación?`,
-                                  )}`}
+                                  href={buildBranchRequestTransferWhatsappUrl({
+                                    customerPhoneE164: customerSnapshot.phone_e164 || order.customer?.phone_e164 || order.customer?.phone,
+                                    customerName: customerSnapshot.name || order.customer?.name || 'Cliente',
+                                    orderCode: order.order_code,
+                                    grandTotalCop: order.grand_total_cop,
+                                    channels: order.branch?.channel_policies?.[0]?.payment_instructions_json?.transfer_instructions || [],
+                                  })}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[10px] flex items-center gap-1 shrink-0 transition"
                                 >
                                   <MessageCircle className="w-3 h-3" />
-                                  <span>Pedir soporte</span>
+                                  <span>Pedir comprobante</span>
                                 </a>
                               )}
                             </div>
@@ -1030,44 +1103,45 @@ export const FullOrderPanelPage: React.FC = () => {
                       )}
 
                       {order.status === 'ACCEPTED' && (
-                        <>
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: 'PREPARING',
-                              })
-                            }
-                            className="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-all shadow-xs"
-                          >
-                            🍳 En Preparación
-                          </button>
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: isPickup ? 'READY' : 'OUT_FOR_DELIVERY',
-                              })
-                            }
-                            className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs"
-                          >
-                            {isPickup ? '📦 Listo' : '🛵 Despachar'}
-                          </button>
-                        </>
-                      )}
-
-                      {order.status === 'PREPARING' && (
                         <button
                           onClick={() =>
                             transitionMutation.mutate({
                               orderId: order.id,
-                              to_status: isPickup ? 'READY' : 'OUT_FOR_DELIVERY',
+                              to_status: 'PREPARING',
                             })
                           }
-                          className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs"
+                          className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          {isPickup ? '📦 Marcar Listo para Entrega' : '🛵 Marcar en Camino (Domicilio)'}
+                          <Flame className="w-4 h-4" />
+                          <span>👨‍🍳 Enviar a Cocina (Preparar)</span>
                         </button>
+                      )}
+
+                      {order.status === 'PREPARING' && (
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <div className="py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Flame className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                              <span>En preparación en cocina...</span>
+                            </span>
+                            <span className="text-[10px] text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md font-bold">
+                              KDS
+                            </span>
+                          </div>
+                          <button
+                            onClick={() =>
+                              transitionMutation.mutate({
+                                orderId: order.id,
+                                to_status: 'READY',
+                              })
+                            }
+                            className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Marcar orden como terminada en cocina"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Marcar Listo en Cocina</span>
+                          </button>
+                        </div>
                       )}
 
                       {order.status === 'READY' && isDineIn && (
@@ -1078,7 +1152,7 @@ export const FullOrderPanelPage: React.FC = () => {
                               to_status: 'SERVED',
                             })
                           }
-                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-md shadow-emerald-950/20 flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-md shadow-emerald-950/20 flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <UtensilsCrossed className="w-4 h-4" />
                           <span>🍽️ Marcar Servido en Mesa</span>
@@ -1093,7 +1167,7 @@ export const FullOrderPanelPage: React.FC = () => {
                               to_status: 'PICKED_UP',
                             })
                           }
-                          className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <ShoppingBag className="w-4 h-4" />
                           <span>✅ Entregado al Cliente (Recogida)</span>
@@ -1101,32 +1175,18 @@ export const FullOrderPanelPage: React.FC = () => {
                       )}
 
                       {order.status === 'READY' && !isPickup && !isDineIn && (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: 'OUT_FOR_DELIVERY',
-                              })
-                            }
-                            className="py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] transition-all shadow-xs flex items-center justify-center gap-1"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>En Despacho</span>
-                          </button>
-                          <button
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                orderId: order.id,
-                                to_status: 'DELIVERED',
-                              })
-                            }
-                            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs flex items-center justify-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Entregado</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              orderId: order.id,
+                              to_status: 'OUT_FOR_DELIVERY',
+                            })
+                          }
+                          className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Truck className="w-4 h-4" />
+                          <span>🛵 Despachar Domicilio (En Camino)</span>
+                        </button>
                       )}
 
                       {order.status === 'OUT_FOR_DELIVERY' && (
@@ -1137,7 +1197,7 @@ export const FullOrderPanelPage: React.FC = () => {
                               to_status: 'DELIVERED',
                             })
                           }
-                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           <span>✅ Domicilio Entregado</span>
