@@ -72,12 +72,22 @@ export class TenancyService {
           tenant_id: tenantId,
           id: { in: user.branchScope },
         },
+        include: {
+          tenant: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
         orderBy: { created_at: 'asc' },
       });
     }
 
     return this.prisma.branch.findMany({
       where: { tenant_id: tenantId },
+      include: {
+        tenant: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
       orderBy: { created_at: 'asc' },
     });
   }
@@ -88,7 +98,12 @@ export class TenancyService {
   async getBranch(tenantId: string, branchId: string) {
     const branch = await this.prisma.branch.findFirst({
       where: { id: branchId, tenant_id: tenantId },
-      include: { channel_policies: true },
+      include: {
+        channel_policies: true,
+        tenant: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
     });
     if (!branch) {
       throw new NotFoundException('Sucursal no encontrada.');

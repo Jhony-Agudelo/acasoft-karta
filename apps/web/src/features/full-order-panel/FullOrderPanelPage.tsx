@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
@@ -25,6 +25,7 @@ import {
   DollarSign,
   Filter,
   Printer,
+  Calendar,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -37,7 +38,7 @@ import { OrderHistoryDrawer } from './OrderHistoryDrawer';
 import { PrintReceiptModal } from '../../components/print/PrintReceiptModal';
 import { CancelOrderModal } from './CancelOrderModal';
 
-type PanelTab =
+export type PanelTab =
   | 'requests'
   | 'unpaid'
   | 'preparing'
@@ -46,16 +47,79 @@ type PanelTab =
   | 'cancelled'
   | 'all';
 
+export type DatePeriodFilter =
+  | 'TODAY'
+  | 'YESTERDAY'
+  | 'LAST_7_DAYS'
+  | 'THIS_MONTH'
+  | 'ALL'
+  | 'CUSTOM';
+
+function getDateRange(
+  period: DatePeriodFilter,
+  customFrom?: string,
+  customTo?: string,
+): { date_from?: string; date_to?: string } {
+  const now = new Date();
+  if (period === 'TODAY') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { date_from: start.toISOString(), date_to: end.toISOString() };
+  }
+  if (period === 'YESTERDAY') {
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+    const end = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+    return { date_from: start.toISOString(), date_to: end.toISOString() };
+  }
+  if (period === 'LAST_7_DAYS') {
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    const start = new Date(sevenDaysAgo.getFullYear(), sevenDaysAgo.getMonth(), sevenDaysAgo.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { date_from: start.toISOString(), date_to: end.toISOString() };
+  }
+  if (period === 'THIS_MONTH') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { date_from: start.toISOString(), date_to: end.toISOString() };
+  }
+  if (period === 'CUSTOM' && customFrom) {
+    const start = new Date(customFrom + 'T00:00:00');
+    const end = customTo ? new Date(customTo + 'T23:59:59.999') : new Date();
+    return { date_from: start.toISOString(), date_to: end.toISOString() };
+  }
+  return {};
+}
+
 export const FullOrderPanelPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentBranchId, user } = useAuthStore();
   const activeBranchId = currentBranchId || (user?.branchScope && user.branchScope[0]) || '';
+
+  // Sucursales para enlace de tienda pública / WhatsApp
+  const { data: rawBranches = [] } = useQuery<any[]>({
+    queryKey: ['branches-list', user?.id, user?.roleKey],
+    queryFn: () => apiClient.get('/admin/branches'),
+    enabled: !!user,
+  });
+
+  const activeBranch = rawBranches.find((b: any) => b.id === activeBranchId);
+  const tenantSlug = activeBranch?.tenant?.slug || 'karta-demo';
+  const branchSlug = activeBranch?.slug || '';
+  const storefrontUrl = `${window.location.origin}/r/${tenantSlug}/b/${branchSlug}`;
+  const [copiedStorefrontLink, setCopiedStorefrontLink] = useState<boolean>(false);
 
   // Filtros de estado y pestaña
   const [activeTab, setActiveTab] = useState<PanelTab>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
+
+  // Filtro de periodo / fecha
+  const [dateFilter, setDateFilter] = useState<DatePeriodFilter>('TODAY');
+  const [customDateFrom, setCustomDateFrom] = useState<string>('');
+  const [customDateTo, setCustomDateTo] = useState<string>('');
+  const [hideCompletedOnAll, setHideCompletedOnAll] = useState<boolean>(true);
 
   // Modales y drawers
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any | null>(null);
@@ -81,6 +145,10 @@ export const FullOrderPanelPage: React.FC = () => {
     });
   };
 
+  const dateRange = useMemo(() => {
+    return getDateRange(dateFilter, customDateFrom, customDateTo);
+  }, [dateFilter, customDateFrom, customDateTo]);
+
   // Cargar pedidos con filtros avanzados
   const {
     data: ordersData,
@@ -93,6 +161,9 @@ export const FullOrderPanelPage: React.FC = () => {
       activeTab,
       fulfillmentFilter,
       paymentFilter,
+      dateFilter,
+      dateRange.date_from,
+      dateRange.date_to,
     ],
     queryFn: async () => {
       if (!activeBranchId) return { data: [], meta: { total: 0 } };
@@ -109,6 +180,8 @@ export const FullOrderPanelPage: React.FC = () => {
 
       if (fulfillmentFilter !== 'ALL') params.append('fulfillment_type', fulfillmentFilter);
       if (paymentFilter !== 'ALL') params.append('payment_status', paymentFilter);
+      if (dateRange.date_from) params.append('date_from', dateRange.date_from);
+      if (dateRange.date_to) params.append('date_to', dateRange.date_to);
 
       const res = await apiClient.get(`/branches/${activeBranchId}/orders?${params.toString()}`);
       return res;
@@ -190,8 +263,19 @@ export const FullOrderPanelPage: React.FC = () => {
     },
   });
 
-  // Filtrado local por término de búsqueda
+  // Filtrado local por término de búsqueda y ocultamiento de finalizados en vista general
   const filteredOrders = orders.filter((order) => {
+    // Si estamos en la pestaña 'all' y el usuario activó ocultar finalizados (entregados y pagados / cancelados)
+    if (activeTab === 'all' && hideCompletedOnAll) {
+      const isDeliveredAndPaid =
+        ['DELIVERED', 'PICKED_UP', 'SERVED'].includes(order.status) &&
+        order.payment_status === 'PAID';
+      const isCancelled = ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'].includes(order.status);
+      if (isDeliveredAndPaid || isCancelled) {
+        return false;
+      }
+    }
+
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
     const code = order.order_code?.toLowerCase() || '';
@@ -249,7 +333,48 @@ export const FullOrderPanelPage: React.FC = () => {
         </div>
 
         {/* Acciones de Cabecera */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Botón Copiar Enlace Carta WhatsApp */}
+          <button
+            onClick={() => {
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(storefrontUrl);
+                setCopiedStorefrontLink(true);
+                setTimeout(() => setCopiedStorefrontLink(false), 2500);
+              }
+            }}
+            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs ${
+              copiedStorefrontLink
+                ? 'bg-emerald-600 border-emerald-600 text-white'
+                : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+            }`}
+            title={`Copiar enlace público de la carta para enviar por WhatsApp: ${storefrontUrl}`}
+          >
+            {copiedStorefrontLink ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>¡Link Carta Copiado!</span>
+              </>
+            ) : (
+              <>
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span className="hidden md:inline">Copiar Link WhatsApp</span>
+                <span className="md:hidden">Carta WA</span>
+              </>
+            )}
+          </button>
+
+          {/* Botón Abrir Carta */}
+          <a
+            href={storefrontUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 shadow-2xs transition-colors hidden sm:flex items-center"
+            title={`Abrir carta pública (${storefrontUrl})`}
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+
           <button
             onClick={toggleSound}
             className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
@@ -393,7 +518,27 @@ export const FullOrderPanelPage: React.FC = () => {
         </div>
 
         {/* Filtros Dropdown */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Selector de Periodo / Fecha */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-stone-500 font-semibold flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-stone-400" />
+              <span className="hidden sm:inline">Periodo:</span>
+            </span>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as DatePeriodFilter)}
+              className="px-2.5 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold focus:outline-hidden shadow-2xs"
+            >
+              <option value="TODAY">📅 Hoy (En Curso)</option>
+              <option value="YESTERDAY">📅 Ayer</option>
+              <option value="LAST_7_DAYS">📅 Últimos 7 Días</option>
+              <option value="THIS_MONTH">📅 Este Mes</option>
+              <option value="ALL">🌐 Todo el Historial</option>
+              <option value="CUSTOM">📆 Rango Personalizado...</option>
+            </select>
+          </div>
+
           {/* Modalidad */}
           <div className="flex items-center gap-1.5">
             <span className="text-stone-500 font-semibold hidden sm:inline">Modalidad:</span>
@@ -425,8 +570,60 @@ export const FullOrderPanelPage: React.FC = () => {
               <option value="WRITTEN_OFF">Saldo Incobrable</option>
             </select>
           </div>
+
+          {/* Checkbox Ocultar Finalizados en 'all' */}
+          {activeTab === 'all' && (
+            <label className="flex items-center gap-1.5 text-stone-600 font-semibold cursor-pointer select-none bg-stone-100/70 hover:bg-stone-200/60 px-2.5 py-1.5 rounded-xl border border-stone-200/60 transition-colors">
+              <input
+                type="checkbox"
+                checked={hideCompletedOnAll}
+                onChange={(e) => setHideCompletedOnAll(e.target.checked)}
+                className="rounded border-stone-300 text-orange-600 focus:ring-orange-500"
+              />
+              <span className="text-[11px]">Ocultar finalizados</span>
+            </label>
+          )}
         </div>
       </div>
+
+      {/* Barra de Rango de Fecha Personalizada si CUSTOM está seleccionado */}
+      {dateFilter === 'CUSTOM' && (
+        <div className="px-6 py-2 bg-amber-50/60 border-b border-amber-200/60 flex flex-wrap items-center gap-3 text-xs shrink-0">
+          <span className="font-bold text-amber-900 flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5" />
+            Rango de Fechas Personalizado:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-stone-600 font-medium">Desde:</span>
+            <input
+              type="date"
+              value={customDateFrom}
+              onChange={(e) => setCustomDateFrom(e.target.value)}
+              className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-stone-700 text-xs shadow-2xs"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-stone-600 font-medium">Hasta:</span>
+            <input
+              type="date"
+              value={customDateTo}
+              onChange={(e) => setCustomDateTo(e.target.value)}
+              className="px-2.5 py-1 rounded-lg border border-stone-300 bg-white text-stone-700 text-xs shadow-2xs"
+            />
+          </div>
+          {(customDateFrom || customDateTo) && (
+            <button
+              onClick={() => {
+                setCustomDateFrom('');
+                setCustomDateTo('');
+              }}
+              className="px-2 py-1 rounded-lg bg-stone-200/80 hover:bg-stone-300 text-stone-700 font-bold text-[11px] transition-colors"
+            >
+              Limpiar Fechas
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Grid de Comandas */}
       <div className="flex-1 overflow-y-auto p-6">
@@ -444,9 +641,18 @@ export const FullOrderPanelPage: React.FC = () => {
               No hay pedidos en esta vista
             </h3>
             <p className="text-xs text-stone-500 leading-relaxed">
-              No se encontraron comandas con los filtros seleccionados o no hay pedidos activos
-              para esta sucursal.
+              {activeTab === 'all' && hideCompletedOnAll && orders.length > 0
+                ? `Hay ${orders.length} pedido(s) finalizados hoy. Puedes verlos en la pestaña "Entregados" o desmarcar la casilla "Ocultar finalizados".`
+                : 'No se encontraron comandas con los filtros seleccionados o no hay pedidos activos para este periodo.'}
             </p>
+            {activeTab === 'all' && hideCompletedOnAll && orders.length > 0 && (
+              <button
+                onClick={() => setHideCompletedOnAll(false)}
+                className="mt-2 px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition-colors"
+              >
+                Ver todos los {orders.length} pedidos
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

@@ -75,21 +75,28 @@ export class BranchOrderController {
       }
     }
 
-    // Pestañas operativas rápidas
+    // Pestañas operativas rápidas (soporta claves en español e inglés)
     const tab = (query as any).tab;
-    if (tab === 'pending_requests') {
+    if (tab === 'pending_requests' || tab === 'solicitudes' || tab === 'requests') {
       where.status = 'REQUESTED';
+    } else if (tab === 'por_cobrar' || tab === 'unpaid') {
+      where.payment_status = { in: ['UNPAID', 'PARTIALLY_PAID'] };
+      where.status = { notIn: ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'] };
     } else if (tab === 'awaiting_prepayment') {
       where.require_payment_before_preparation = true;
       where.payment_status = { not: 'PAID' };
       where.status = { in: ['ACCEPTED', 'RECEIVED'] };
-    } else if (tab === 'in_preparation') {
+    } else if (tab === 'in_preparation' || tab === 'en_preparacion' || tab === 'preparing') {
       where.status = { in: ['ACCEPTED', 'PREPARING'] };
-    } else if (tab === 'ready_or_in_transit') {
+    } else if (tab === 'ready_or_in_transit' || tab === 'listos' || tab === 'ready') {
       where.status = { in: ['READY', 'OUT_FOR_DELIVERY'] };
     } else if (tab === 'uncollected_delivered') {
       where.status = { in: ['DELIVERED', 'PICKED_UP', 'SERVED'] };
       where.payment_status = { in: ['UNPAID', 'PARTIALLY_PAID'] };
+    } else if (tab === 'entregados' || tab === 'delivered') {
+      where.status = { in: ['DELIVERED', 'PICKED_UP', 'SERVED'] };
+    } else if (tab === 'cancelados' || tab === 'cancelled') {
+      where.status = { in: ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'] };
     }
 
     if (query.q) {
@@ -112,14 +119,32 @@ export class BranchOrderController {
     const limit = Number(query.limit) || 20;
     const skip = (page - 1) * limit;
 
+    // Filtros base para contadores de pestañas dentro del periodo seleccionado
+    const countsBaseWhere: any = {
+      tenant_id: user.tenantId,
+      branch_id: branchId,
+    };
+    if (where.created_at) {
+      countsBaseWhere.created_at = where.created_at;
+    }
+    if (query.origin) {
+      countsBaseWhere.origin = query.origin;
+    }
+    if (query.fulfillment_type) {
+      countsBaseWhere.fulfillment_type = query.fulfillment_type;
+    }
+
     const [
       orders,
       total,
+      totalInFilter,
       pendingRequestsCount,
-      awaitingPrepaymentCount,
+      unpaidCount,
       inPreparationCount,
       readyOrInTransitCount,
+      deliveredCount,
       uncollectedDeliveredCount,
+      cancelledCount,
     ] = await Promise.all([
       (this.prisma as any).order.findMany({
         where,
@@ -156,38 +181,46 @@ export class BranchOrderController {
         take: limit,
       }),
       (this.prisma as any).order.count({ where }),
+      (this.prisma as any).order.count({ where: countsBaseWhere }),
       (this.prisma as any).order.count({
-        where: { tenant_id: user.tenantId, branch_id: branchId, status: 'REQUESTED' },
+        where: { ...countsBaseWhere, status: 'REQUESTED' },
       }),
       (this.prisma as any).order.count({
         where: {
-          tenant_id: user.tenantId,
-          branch_id: branchId,
-          require_payment_before_preparation: true,
-          payment_status: { not: 'PAID' },
-          status: { in: ['ACCEPTED', 'RECEIVED'] },
+          ...countsBaseWhere,
+          payment_status: { in: ['UNPAID', 'PARTIALLY_PAID'] },
+          status: { notIn: ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'] },
         },
       }),
       (this.prisma as any).order.count({
         where: {
-          tenant_id: user.tenantId,
-          branch_id: branchId,
+          ...countsBaseWhere,
           status: { in: ['ACCEPTED', 'PREPARING'] },
         },
       }),
       (this.prisma as any).order.count({
         where: {
-          tenant_id: user.tenantId,
-          branch_id: branchId,
+          ...countsBaseWhere,
           status: { in: ['READY', 'OUT_FOR_DELIVERY'] },
         },
       }),
       (this.prisma as any).order.count({
         where: {
-          tenant_id: user.tenantId,
-          branch_id: branchId,
+          ...countsBaseWhere,
+          status: { in: ['DELIVERED', 'PICKED_UP', 'SERVED'] },
+        },
+      }),
+      (this.prisma as any).order.count({
+        where: {
+          ...countsBaseWhere,
           status: { in: ['DELIVERED', 'PICKED_UP', 'SERVED'] },
           payment_status: { in: ['UNPAID', 'PARTIALLY_PAID'] },
+        },
+      }),
+      (this.prisma as any).order.count({
+        where: {
+          ...countsBaseWhere,
+          status: { in: ['CANCELLED', 'REJECTED', 'EXPIRED_UNPROCESSED'] },
         },
       }),
     ]);
@@ -205,13 +238,24 @@ export class BranchOrderController {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        tab_counts: {
+          solicitudes: pendingRequestsCount,
+          por_cobrar: unpaidCount,
+          en_preparacion: inPreparationCount,
+          listos: readyOrInTransitCount,
+          entregados: deliveredCount,
+          cancelados: cancelledCount,
+          total: totalInFilter,
+        },
       },
       counters: {
         pending_requests_count: pendingRequestsCount,
-        awaiting_prepayment_count: awaitingPrepaymentCount,
+        awaiting_prepayment_count: unpaidCount,
         in_preparation_count: inPreparationCount,
         ready_or_in_transit_count: readyOrInTransitCount,
         uncollected_delivered_count: uncollectedDeliveredCount,
+        delivered_count: deliveredCount,
+        cancelled_count: cancelledCount,
       },
     };
   }

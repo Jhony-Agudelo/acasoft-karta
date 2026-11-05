@@ -32,6 +32,19 @@ export const LiteOrderPanelPage: React.FC = () => {
   const { currentBranchId, user } = useAuthStore();
   const activeBranchId = currentBranchId || (user?.branchScope && user.branchScope[0]) || '';
 
+  // Sucursales para enlace de tienda pública / WhatsApp
+  const { data: rawBranches = [] } = useQuery<any[]>({
+    queryKey: ['branches-list', user?.id, user?.roleKey],
+    queryFn: () => apiClient.get('/admin/branches'),
+    enabled: !!user,
+  });
+
+  const activeBranch = rawBranches.find((b: any) => b.id === activeBranchId);
+  const tenantSlug = activeBranch?.tenant?.slug || 'karta-demo';
+  const branchSlug = activeBranch?.slug || '';
+  const storefrontUrl = `${window.location.origin}/r/${tenantSlug}/b/${branchSlug}`;
+  const [copiedStorefrontLink, setCopiedStorefrontLink] = useState<boolean>(false);
+
   // Preferencias de sonido
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
     return localStorage.getItem('karta_sound_muted') === 'true';
@@ -200,6 +213,36 @@ export const LiteOrderPanelPage: React.FC = () => {
             />
             <span>{isConnected ? 'En vivo (SSE)' : 'Reconectando...'}</span>
           </div>
+
+          {/* Botón Copiar Enlace Carta WhatsApp */}
+          <button
+            onClick={() => {
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(storefrontUrl);
+                setCopiedStorefrontLink(true);
+                setTimeout(() => setCopiedStorefrontLink(false), 2500);
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs ${
+              copiedStorefrontLink
+                ? 'bg-emerald-600 border-emerald-600 text-white'
+                : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+            }`}
+            title={`Copiar enlace público de la carta para enviar por WhatsApp: ${storefrontUrl}`}
+          >
+            {copiedStorefrontLink ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>¡Copiado!</span>
+              </>
+            ) : (
+              <>
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span className="hidden sm:inline">Copiar Link WhatsApp</span>
+                <span className="sm:hidden">WA</span>
+              </>
+            )}
+          </button>
 
           {/* Toggle de Sonido */}
           <button
