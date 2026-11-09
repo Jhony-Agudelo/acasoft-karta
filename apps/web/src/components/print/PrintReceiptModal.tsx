@@ -38,7 +38,15 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
   taxProfileMode = 'FINAL_PRICE_NO_BREAKDOWN',
 }) => {
   const [ticketType, setTicketType] = useState<'RECEIPT' | 'KITCHEN'>('RECEIPT');
-  const [paperWidth, setPaperWidth] = useState<ThermalPaperWidth>('80mm');
+  const [paperWidth, setPaperWidth] = useState<ThermalPaperWidth>(() => {
+    try {
+      const saved = localStorage.getItem('karta_pos_thermal_paper_width');
+      return saved === '58mm' || saved === '80mm' ? saved : '80mm';
+    } catch {
+      return '80mm';
+    }
+  });
+  const cols = paperWidth === '58mm' ? 30 : 38;
   const [copied, setCopied] = useState(false);
 
   // Generar texto térmico reactivo
@@ -130,8 +138,8 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
       pendingBalanceCop: Math.max(0, grandTotal - paidTotal),
     };
 
-    return formatThermalReceiptText(receiptData, { width: paperWidth });
-  }, [order, ticketType, paperWidth, restaurantName, branchName, receiptFooterText, taxProfileMode]);
+    return formatThermalReceiptText(receiptData, { width: paperWidth, cols });
+  }, [order, ticketType, paperWidth, cols, restaurantName, branchName, receiptFooterText, taxProfileMode]);
 
   if (!isOpen || !order) return null;
 
@@ -205,24 +213,36 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
           {/* Ancho Térmico */}
           <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200 shadow-sm">
             <button
-              onClick={() => setPaperWidth('58mm')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                paperWidth === '58mm'
-                  ? 'bg-stone-800 text-white shadow-sm'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              58 mm (32 car.)
-            </button>
-            <button
-              onClick={() => setPaperWidth('80mm')}
+              onClick={() => {
+                setPaperWidth('80mm');
+                try {
+                  localStorage.setItem('karta_pos_thermal_paper_width', '80mm');
+                } catch {}
+              }}
               className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
                 paperWidth === '80mm'
-                  ? 'bg-stone-800 text-white shadow-sm'
+                  ? 'bg-orange-600 text-white shadow-sm'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
+              title="80mm Estándar (38 columnas — Ajuste óptimo anti-recortes)"
             >
-              80 mm (42 car.)
+              80 mm (Estándar)
+            </button>
+            <button
+              onClick={() => {
+                setPaperWidth('58mm');
+                try {
+                  localStorage.setItem('karta_pos_thermal_paper_width', '58mm');
+                } catch {}
+              }}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                paperWidth === '58mm'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+              title="58mm Mini (30 columnas)"
+            >
+              58 mm (Mini)
             </button>
           </div>
 
@@ -234,6 +254,13 @@ export const PrintReceiptModal: React.FC<PrintReceiptModalProps> = ({
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copiado' : 'Copiar Texto'}
           </button>
+        </div>
+
+        {/* Banner de Ayuda de Márgenes */}
+        <div className="bg-amber-50/80 px-4 py-2 border-b border-amber-200/60 text-[11px] text-amber-900 flex items-center justify-between">
+          <span>
+            💡 <strong>Ajuste de Impresora:</strong> En la ventana de impresión de tu navegador (Chrome / Edge), asegúrate de poner <strong>Márgenes: "Ninguno" (None)</strong> para evitar que se desplace a la derecha.
+          </span>
         </div>
 
         {/* Vista previa térmica tipo papel */}

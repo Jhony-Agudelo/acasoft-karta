@@ -34,7 +34,11 @@ export interface PrintReceiptOptions {
  */
 export function printThermalContent(options: PrintReceiptOptions): void {
   const { content, width = '80mm' } = options;
-  const mmWidth = width === '58mm' ? '58mm' : '80mm';
+  // Ancho imprimible real del cabezal térmico físico:
+  // En papel de 80mm el cabezal mide 72mm (70mm efectivo con márgenes de rodillo)
+  // En papel de 58mm el cabezal mide 48mm
+  const printableWidth = width === '58mm' ? '48mm' : '70mm';
+  const paperSize = width === '58mm' ? '58mm' : '80mm';
 
   // Crear iframe invisible para impresión limpia sin alterar el DOM de la aplicación
   const iframe = document.createElement('iframe');
@@ -61,42 +65,50 @@ export function printThermalContent(options: PrintReceiptOptions): void {
         <title>Impresión Térmica Karta</title>
         <style>
           @page {
-            margin: 0;
+            size: ${paperSize} auto;
+            margin: 0 !important;
           }
           @media print {
             * {
               box-sizing: border-box;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             html, body {
-              width: ${mmWidth};
+              width: ${printableWidth} !important;
+              max-width: ${printableWidth} !important;
               margin: 0 !important;
               padding: 0 !important;
               background: #fff;
               color: #000;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
             }
           }
           * {
             box-sizing: border-box;
           }
-          body {
-            width: ${mmWidth};
-            max-width: ${mmWidth};
-            font-family: 'Consolas', 'Courier New', Courier, monospace;
-            font-size: ${width === '58mm' ? '8.8px' : '9.5px'};
-            line-height: 1.2;
-            letter-spacing: -0.2px;
-            white-space: pre;
-            overflow: visible;
-            word-break: keep-all;
-            overflow-wrap: normal;
-            padding: 1.5mm 1.5mm;
+          html, body {
+            width: ${printableWidth};
+            max-width: ${printableWidth};
             margin: 0;
+            padding: 0;
+            background: #fff;
+            color: #000;
+          }
+          pre {
+            width: 100%;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            font-size: ${width === '58mm' ? '8.2px' : '8.8px'};
+            line-height: 1.22;
+            letter-spacing: -0.35px;
+            white-space: pre;
+            overflow: hidden;
+            word-break: keep-all;
+            margin: 0;
+            padding: 0;
           }
         </style>
       </head>
-      <body>${escapeHtml(content)}</body>
+      <body><pre>${escapeHtml(content)}</pre></body>
     </html>
   `;
 

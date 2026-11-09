@@ -243,6 +243,9 @@ async function main() {
       'notifications.whatsapp_click',
       'notifications.email',
       'reporting',
+      'invoicing.electronic_dian',
+      'finance.expenses_dse',
+      'payroll.electronic_dian',
     ],
   };
 

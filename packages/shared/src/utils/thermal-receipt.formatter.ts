@@ -55,13 +55,14 @@ export interface ThermalReceiptData {
 }
 
 /**
- * Formatea un recibo de texto monospacio para impresoras térmicas de 58mm (32 columnas) u 80mm (42 columnas).
+ * Formatea un recibo de texto monospacio para impresoras térmicas de 58mm (30 columnas) u 80mm (38 columnas estándar para evitar desbordes).
  */
 export function formatThermalReceiptText(
   data: ThermalReceiptData,
-  options: { width: '58mm' | '80mm' } = { width: '80mm' },
+  options: { width: '58mm' | '80mm'; cols?: number } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 42;
+  const defaultCols = options.width === '58mm' ? 30 : 38;
+  const cols = options.cols || defaultCols;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 
@@ -251,9 +252,10 @@ export const DIAN_DINING_DISCLAIMER =
  */
 export function formatDiningPreCuentaText(
   data: DiningPreCuentaData,
-  options: { width: '58mm' | '80mm' } = { width: '80mm' },
+  options: { width: '58mm' | '80mm'; cols?: number } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 38;
+  const defaultCols = options.width === '58mm' ? 30 : 38;
+  const cols = options.cols || defaultCols;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 
@@ -413,9 +415,10 @@ export interface DiningPaymentReceiptData {
  */
 export function formatDiningPaymentReceiptText(
   data: DiningPaymentReceiptData,
-  options: { width: '58mm' | '80mm' } = { width: '80mm' },
+  options: { width: '58mm' | '80mm'; cols?: number } = { width: '80mm' },
 ): string {
-  const cols = options.width === '58mm' ? 32 : 38;
+  const defaultCols = options.width === '58mm' ? 30 : 38;
+  const cols = options.cols || defaultCols;
   const separator = '-'.repeat(cols);
   const doubleSeparator = '='.repeat(cols);
 

@@ -32,6 +32,9 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/admin/cash-shifts',
     '/admin/capabilities',
     '/admin/settings',
+    '/finance',
+    '/admin/staff-payroll',
+    '/admin/invoicing',
   ],
   BRANCH_MANAGER: [
     '/dashboard',
@@ -49,6 +52,9 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/admin/dining-tables',
     '/admin/customers',
     '/admin/cash-shifts',
+    '/finance',
+    '/admin/staff-payroll',
+    '/admin/invoicing',
   ],
   CASHIER: [
     '/dining',
@@ -71,6 +77,9 @@ export const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
     '/admin/capabilities',
     '/admin/settings',
     '/admin/cash-shifts',
+    '/finance',
+    '/admin/staff-payroll',
+    '/admin/invoicing',
     '/reports',
   ],
 };

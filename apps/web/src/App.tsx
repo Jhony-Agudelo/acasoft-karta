@@ -28,6 +28,9 @@ import { ReportsPage } from './features/reports/ReportsPage';
 import { DiningFloorPlanPage } from './features/dining-pos/DiningFloorPlanPage';
 import { DiningAdminSettings } from './features/dining-pos/DiningAdminSettings';
 import { CashShiftsHistoryPage } from './features/cash-shifts/CashShiftsHistoryPage';
+import { FinancePage } from './features/finance/FinancePage';
+import { StaffPayrollPage } from './features/payroll/StaffPayrollPage';
+import { InvoicingSettingsPage } from './features/invoicing/InvoicingSettingsPage';
 import { ModulePlaceholderPage } from './pages/modules/ModulePlaceholderPage';
 import {
   Truck,
@@ -158,6 +161,36 @@ export const App: React.FC = () => {
               <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER', 'PLATFORM_ADMIN']}>
                 <CapabilityRoute module="payments.cash_shifts" moduleName="Turnos y Arqueo de Caja">
                   <CashShiftsHistoryPage />
+                </CapabilityRoute>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="finance"
+            element={
+              <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER', 'PLATFORM_ADMIN']}>
+                <CapabilityRoute module="finance.expenses_dse" moduleName="Finanzas & P&L">
+                  <FinancePage />
+                </CapabilityRoute>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="admin/staff-payroll"
+            element={
+              <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER', 'PLATFORM_ADMIN']}>
+                <CapabilityRoute module="payroll.electronic_dian" moduleName="Personal & Nómina DIAN">
+                  <StaffPayrollPage />
+                </CapabilityRoute>
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="admin/invoicing"
+            element={
+              <RoleRoute allowedRoles={['TENANT_ADMIN', 'BRANCH_MANAGER', 'PLATFORM_ADMIN']}>
+                <CapabilityRoute module="invoicing.electronic_dian" moduleName="Facturación DIAN Factus">
+                  <InvoicingSettingsPage />
                 </CapabilityRoute>
               </RoleRoute>
             }

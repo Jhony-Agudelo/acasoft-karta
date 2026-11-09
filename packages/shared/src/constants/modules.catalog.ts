@@ -19,13 +19,15 @@ export const MVP_MODULE_KEYS = [
   'notifications.whatsapp_click',
   'notifications.email',
   'reporting',
+  'invoicing.electronic_dian',
+  'finance.expenses_dse',
+  'payroll.electronic_dian',
 ] as const;
 
 export const POST_MVP_MODULE_KEYS = [
   'payments.online',
   'payments.links',
   'notifications.whatsapp_api',
-  'invoicing.electronic_dian',
 ] as const;
 
 export const CORE_SYSTEM_MODULE_KEYS = [
@@ -216,12 +218,30 @@ export const MODULES_CATALOG: Readonly<Record<ModuleKey, ModuleDefinition>> = {
   },
   'invoicing.electronic_dian': {
     key: 'invoicing.electronic_dian',
-    name: 'Facturación Electrónica POS DIAN (Post-MVP)',
-    description: 'Emisión de Factura Electrónica y Documento Equivalente POS DIAN vía Proveedor Tecnológico',
+    name: 'Facturación Electrónica POS DIAN',
+    description: 'Emisión de Factura Electrónica de Venta (Consumidor Final y Nominativa), Notas Crédito/Débito y autocompletado DIAN vía Factus API v2',
     depends_on_all: ['payments.manual'],
     depends_on_any: [],
     is_core: false,
-    is_post_mvp: true,
+    is_post_mvp: false,
+  },
+  'finance.expenses_dse': {
+    key: 'finance.expenses_dse',
+    name: 'Gastos, Compras y Documento Soporte Electrónico',
+    description: 'Gestión Financiera de Proveedores, Compras/Gastos, Cuentas por Pagar, Documento Soporte Electrónico, Eventos RADIAN y Estado de Resultados (P&L)',
+    depends_on_all: ['payments.manual', 'reporting'],
+    depends_on_any: [],
+    is_core: false,
+    is_post_mvp: false,
+  },
+  'payroll.electronic_dian': {
+    key: 'payroll.electronic_dian',
+    name: 'Nómina Gastronómica y Nómina Electrónica DIAN',
+    description: 'Gestión de personal (incluyendo operarios y personal sin acceso a sistema), liquidación de recargos nocturnos/festivos y Nómina Electrónica Factus v2',
+    depends_on_all: [],
+    depends_on_any: ['order_panel', 'dining'],
+    is_core: false,
+    is_post_mvp: false,
   },
 };
 
@@ -345,6 +365,9 @@ export const PLAN_ENTITLEMENTS: Record<string, readonly string[]> = {
     'notifications.whatsapp_click',
     'notifications.email',
     'reporting',
+    'invoicing.electronic_dian',
+    'finance.expenses_dse',
+    'payroll.electronic_dian',
   ],
 };
 

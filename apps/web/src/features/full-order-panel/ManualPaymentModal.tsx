@@ -11,10 +11,12 @@ import {
   RotateCcw,
   ShieldAlert,
   HelpCircle,
+  FileText,
 } from 'lucide-react';
 import { apiClient } from '../../services/api-client';
 import { formatMoneyCop, PaymentMethod } from '@restaurante-saas/shared';
 import { OpenShiftModal } from '../cash-shifts/OpenShiftModal';
+import { ElectronicInvoiceModal } from '../invoicing/ElectronicInvoiceModal';
 
 interface PaymentRecord {
   id: string;
@@ -77,6 +79,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [openShiftModalOpen, setOpenShiftModalOpen] = useState<boolean>(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
 
   // Anulación de Pago
   const [voidingPaymentId, setVoidingPaymentId] = useState<string | null>(null);
@@ -266,12 +269,23 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsInvoiceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 font-bold text-xs shadow-2xs transition"
+                title="Emitir Factura Electrónica DIAN"
+              >
+                <FileText className="w-3.5 h-3.5 text-orange-600" />
+                <span className="hidden sm:inline">Factura DIAN</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Tarjeta de Saldos */}
@@ -871,6 +885,20 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
               '¡Turno de caja abierto exitosamente! Ahora puedes confirmar el cobro en efectivo.',
             );
             setOpenShiftModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Modal de Facturación Electrónica DIAN Factus v2 */}
+      {isInvoiceModalOpen && (
+        <ElectronicInvoiceModal
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          orderId={order.id}
+          orderCode={order.order_code}
+          totalCop={order.grand_total_cop}
+          onSuccess={() => {
+            onSuccess();
           }}
         />
       )}

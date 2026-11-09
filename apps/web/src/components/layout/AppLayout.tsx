@@ -27,6 +27,9 @@ import {
   BarChart3,
   Receipt,
   Lock,
+  DollarSign,
+  FileText,
+  Briefcase,
   Bell,
   BellRing,
   CheckCheck,
@@ -207,10 +210,13 @@ export const AppLayout: React.FC = () => {
     { label: 'Domicilios', path: '/delivery', icon: Truck, module: 'delivery' },
     { label: 'Para Llevar', path: '/pickup', icon: ShoppingBag, module: 'channel.pickup' },
     { label: 'Cocina KDS', path: '/kds', icon: Flame, module: 'kitchen' },
+    { label: 'Finanzas & P&L', path: '/finance', icon: DollarSign, module: 'finance.expenses_dse' },
     { label: 'Reportes & Conciliación', path: '/reports', icon: BarChart3, module: 'reporting' },
   ];
 
   const adminNavItems = [
+    { label: 'Personal & Nómina DIAN', path: '/admin/staff-payroll', icon: Briefcase, module: 'payroll.electronic_dian' },
+    { label: 'Facturación DIAN Factus', path: '/admin/invoicing', icon: FileText, module: 'invoicing.electronic_dian' },
     { label: 'Turnos y Arqueo Caja', path: '/admin/cash-shifts', icon: Receipt, module: 'payments.cash_shifts' },
     { label: 'Zonas de Domicilio', path: '/admin/delivery-zones', icon: MapPin },
     { label: 'Mesas & Portamesas', path: '/admin/dining-tables', icon: UtensilsCrossed, module: 'dining' },

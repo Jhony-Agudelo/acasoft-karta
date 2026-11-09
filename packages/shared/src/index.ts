@@ -24,3 +24,8 @@ export * from './constants/dining.machine';
 export * from './utils/consumption-split.calculator';
 export * from './schemas/dining.schema';
 export * from './schemas/cash-shift.schema';
+export * from './constants/factus-v2.catalog';
+export * from './utils/factus-v2-mapper.calculator';
+export * from './utils/payroll.calculator';
+export * from './utils/financial-pnl.calculator';
+export * from './schemas/factus-finance-payroll.schema';

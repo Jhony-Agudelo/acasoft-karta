@@ -12,6 +12,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { DiningAccountDetail } from './types';
 import { OpenShiftModal } from '../cash-shifts/OpenShiftModal';
 import { useCashShift } from '../cash-shifts/use-cash-shift';
+import { ElectronicInvoiceModal } from '../invoicing/ElectronicInvoiceModal';
 import {
   X,
   Plus,
@@ -107,6 +108,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
   // Feedback
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [openShiftModalOpen, setOpenShiftModalOpen] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Consulta de la cuenta
   const {
@@ -543,6 +545,18 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
               >
                 <Printer className="h-4 w-4 text-emerald-600" />
                 <span className="hidden sm:inline">Comprobante de Caja</span>
+              </button>
+            )}
+
+            {account && account.payments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsInvoiceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 hover:bg-orange-100 text-orange-800 font-bold text-xs shadow-xs transition"
+                title="Emitir Factura Electrónica DIAN Factus v2"
+              >
+                <FileText className="h-4 w-4 text-orange-600" />
+                <span className="hidden sm:inline">Factura DIAN</span>
               </button>
             )}
 
@@ -1165,6 +1179,21 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
               message: '¡Turno de caja abierto exitosamente! Ahora puedes confirmar el cobro.',
             });
             setOpenShiftModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Modal de Factura Electrónica DIAN Factus v2 */}
+      {isInvoiceModalOpen && account && (
+        <ElectronicInvoiceModal
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          accountId={account.id}
+          orderCode={`Mesa ${tableCode}`}
+          totalCop={account.grand_total_cop}
+          onSuccess={() => {
+            refetch();
+            onSuccess();
           }}
         />
       )}

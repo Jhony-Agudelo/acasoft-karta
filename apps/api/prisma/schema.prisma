@@ -57,6 +57,16 @@ model Tenant {
   consumption_assignments ConsumptionAssignment[]
   cash_shifts            CashShift[]
   cash_shift_movements   CashShiftMovement[]
+  factus_config               FactusTenantConfig?
+  branch_numbering_ranges     BranchNumberingRange[]
+  tax_customer_profiles       TaxCustomerProfile[]
+  electronic_fiscal_documents ElectronicFiscalDocument[]
+  suppliers                   Supplier[]
+  expense_documents           ExpenseDocument[]
+  expense_payments            ExpensePayment[]
+  received_supplier_invoices  ReceivedSupplierInvoice[]
+  employee_profiles           EmployeeProfile[]
+  payroll_settlements         PayrollSettlement[]
 
   @@map("tenants")
 }
@@ -103,6 +113,13 @@ model Branch {
   dining_accounts        DiningAccount[]
   cash_shifts            CashShift[]
   cash_shift_movements   CashShiftMovement[]
+  branch_numbering_ranges     BranchNumberingRange[]
+  electronic_fiscal_documents ElectronicFiscalDocument[]
+  expense_documents           ExpenseDocument[]
+  expense_payments            ExpensePayment[]
+  received_supplier_invoices  ReceivedSupplierInvoice[]
+  employee_profiles           EmployeeProfile[]
+  payroll_settlements         PayrollSettlement[]
 
   @@unique([tenant_id, slug])
   @@map("branches")
@@ -137,6 +154,11 @@ model User {
   opened_cash_shifts       CashShift[]         @relation("CashShiftOpener")
   closed_cash_shifts       CashShift[]         @relation("CashShiftCloser")
   created_cash_shift_movements CashShiftMovement[] @relation("CashShiftMovementCreator")
+  created_fiscal_documents    ElectronicFiscalDocument[] @relation("FiscalDocCreator")
+  created_expenses            ExpenseDocument[]          @relation("ExpenseCreator")
+  created_expense_payments    ExpensePayment[]           @relation("ExpensePaymentCreator")
+  employee_profile            EmployeeProfile?
+  created_payrolls            PayrollSettlement[]        @relation("PayrollCreator")
 
   @@map("users")
 }
@@ -559,6 +581,7 @@ model Order {
   status_events                      OrderStatusEvent[]
   edits                              OrderEdit[]
   payments                           Payment[]
+  electronic_fiscal_documents        ElectronicFiscalDocument[]
 
   @@unique([tenant_id, idempotency_key], name: "uq_orders_tenant_idempotency")
   @@index([tenant_id, branch_id, status, created_at(sort: Desc)], name: "idx_orders_panel")
@@ -802,6 +825,7 @@ model DiningAccount {
   payments    Payment[]
   diners      AccountDiner[]
   assignments ConsumptionAssignment[]
+  electronic_fiscal_documents ElectronicFiscalDocument[]
 
   @@index([tenant_id, branch_id, status], name: "idx_dining_accounts_status")
   @@map("dining_accounts")
@@ -894,10 +918,319 @@ model CashShiftMovement {
   branch  Branch    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   shift   CashShift @relation(fields: [shift_id], references: [id], onDelete: Cascade)
   creator User      @relation("CashShiftMovementCreator", fields: [created_by], references: [id])
+  expense_payments ExpensePayment[]
 
   @@index([tenant_id, shift_id], name: "idx_cash_shift_movements_shift")
   @@map("cash_shift_movements")
 }
+
+// -----------------------------------------------------------------------------
+// 9. FACTURACIÓN ELECTRÓNICA FACTUS V2, GASTOS Y NÓMINA (FASE 09)
+// -----------------------------------------------------------------------------
+
+model FactusTenantConfig {
+  id                        String    @id @default(uuid()) @db.Uuid
+  tenant_id                 String    @unique @db.Uuid
+  environment               String    @default("SANDBOX") @db.VarChar(20) // SANDBOX | PRODUCTION
+  api_base_url              String    @default("https://api-sandbox.factus.com.co") @db.VarChar(255)
+  encrypted_client_id       String    @db.Text
+  encrypted_client_secret   String    @db.Text
+  encrypted_username        String    @db.Text
+  encrypted_password        String    @db.Text
+  encrypted_access_token    String?   @db.Text
+  encrypted_refresh_token   String?   @db.Text
+  token_expires_at          DateTime? @db.Timestamptz(6)
+  invoicing_trigger_mode    String    @default("CASHIER_CHOICE") @db.VarChar(24) // AUTO_ALWAYS | CASHIER_CHOICE
+  default_municipality_code String    @default("66400") @db.VarChar(10)
+  default_tribute_code      String    @default("01") @db.VarChar(10)
+  is_active                 Boolean   @default(true)
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("factus_tenant_configs")
+}
+
+model BranchNumberingRange {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenant_id           String   @db.Uuid
+  branch_id           String   @db.Uuid
+  document_type_code  String   @db.VarChar(4) // '21' Factura | '22' NC | '23' ND | '24' DS | '25' NA-DS | '26' Nom | '27' NA-Nom
+  factus_range_id     String   @db.VarChar(64) // Entero (ej. "389") o ULID (ej. "01kpdv...")
+  prefix              String   @db.VarChar(10)
+  resolution_number   String?  @db.VarChar(64)
+  current_consecutive BigInt   @default(1)
+  is_active           Boolean  @default(true)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, branch_id, document_type_code], name: "uq_branch_numbering_ranges_doc_type")
+  @@map("branch_numbering_ranges")
+}
+
+model TaxCustomerProfile {
+  id                           String   @id @default(uuid()) @db.Uuid
+  tenant_id                    String   @db.Uuid
+  identification_document_code String   @db.VarChar(4) // '13' CC | '31' NIT | '22' CE | '41' Pasaporte
+  identification               String   @db.VarChar(32)
+  dv                           String?  @db.VarChar(2)
+  legal_organization_code      String   @default("2") @db.VarChar(2) // '1' Jurídica | '2' Natural
+  names                        String?  @db.VarChar(255)
+  company                      String?  @db.VarChar(255)
+  trade_name                   String?  @db.VarChar(255)
+  email                        String?  @db.VarChar(255)
+  phone                        String?  @db.VarChar(32)
+  address                      String?  @db.VarChar(255)
+  municipality_code            String   @default("66400") @db.VarChar(10)
+  tribute_code                 String   @default("ZZ") @db.VarChar(4)
+  responsibilities             String[] @default(["R-99-PN"])
+  created_at                   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, identification_document_code, identification], name: "uq_tax_customer_profiles_id")
+  @@map("tax_customer_profiles")
+}
+
+model ElectronicFiscalDocument {
+  id                                 String    @id @default(uuid()) @db.Uuid
+  tenant_id                          String    @db.Uuid
+  branch_id                          String    @db.Uuid
+  doc_category                       String    @db.VarChar(32) // BILL | CREDIT_NOTE | DEBIT_NOTE | SUPPORT_DOCUMENT | SUPPORT_ADJUSTMENT_NOTE
+  customer_mode                      String    @db.VarChar(32) // FINAL_CONSUMER | NAMED_CUSTOMER | SUPPLIER_DSE
+  reference_code                     String    @db.VarChar(64)
+  order_id                           String?   @db.Uuid
+  account_id                         String?   @db.Uuid
+  expense_id                         String?   @db.Uuid
+  parent_fiscal_doc_id               String?   @db.Uuid
+  factus_number                      String?   @db.VarChar(64) // ej. 'SETP990001103' o 'SEDS984000129'
+  prefix                             String?   @db.VarChar(10)
+  cufe_or_cude                       String?   @db.VarChar(128)
+  qr_url                             String?   @db.Text
+  qr_image_base64                    String?   @db.Text
+  status                             String    @default("PENDING_VALIDATION") @db.VarChar(32) // PENDING_VALIDATION | VALIDATED | REJECTED | ANNULLED_BY_NOTE
+  total_cop                          Int
+  cash_rounding_cop_cents            String    @default("0.00") @db.VarChar(16)
+  customer_or_provider_snapshot_json Json      @db.JsonB
+  request_payload_json               Json      @db.JsonB
+  response_payload_json              Json?     @db.JsonB
+  last_error_message                 String?   @db.Text
+  validated_at                       DateTime? @db.Timestamptz(6)
+  created_by                         String    @db.Uuid
+  created_at                         DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant            Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch            Branch                    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  order             Order?                    @relation(fields: [order_id], references: [id], onDelete: SetNull)
+  account           DiningAccount?            @relation(fields: [account_id], references: [id], onDelete: SetNull)
+  expense           ExpenseDocument?          @relation(fields: [expense_id], references: [id], onDelete: SetNull)
+  parent_fiscal_doc ElectronicFiscalDocument? @relation("FiscalDocParentChild", fields: [parent_fiscal_doc_id], references: [id], onDelete: SetNull)
+  child_fiscal_docs ElectronicFiscalDocument[] @relation("FiscalDocParentChild")
+  creator           User                      @relation("FiscalDocCreator", fields: [created_by], references: [id])
+
+  @@unique([tenant_id, reference_code], name: "uq_electronic_fiscal_docs_reference")
+  @@index([tenant_id, branch_id, status], name: "idx_electronic_fiscal_docs_status")
+  @@map("electronic_fiscal_documents")
+}
+
+model Supplier {
+  id                           String   @id @default(uuid()) @db.Uuid
+  tenant_id                    String   @db.Uuid
+  identification_document_code String   @default("31") @db.VarChar(4) // '31' NIT | '13' CC
+  identification               String   @db.VarChar(32)
+  dv                           String?  @db.VarChar(2)
+  legal_organization_code      String   @default("1") @db.VarChar(2) // '1' Jurídica | '2' Natural
+  name                         String   @db.VarChar(255)
+  email                        String?  @db.VarChar(255)
+  phone                        String?  @db.VarChar(32)
+  address                      String   @db.VarChar(255)
+  municipality_code            String   @default("66400") @db.VarChar(10)
+  is_obligated_to_invoice      Boolean  @default(false)
+  is_active                    Boolean  @default(true)
+  created_at                   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  expenses ExpenseDocument[]
+
+  @@unique([tenant_id, identification], name: "uq_suppliers_tenant_id")
+  @@map("suppliers")
+}
+
+model ExpenseDocument {
+  id                        String    @id @default(uuid()) @db.Uuid
+  tenant_id                 String    @db.Uuid
+  branch_id                 String    @db.Uuid
+  supplier_id               String    @db.Uuid
+  expense_code              String    @db.VarChar(32) // ej. #G-0042
+  category                  String    @db.VarChar(32) // INGREDIENTS_PURCHASE | UTILITIES | RENT | MAINTENANCE | PACKAGING | MARKETING | SERVICES | OTHER
+  payment_form              String    @default("1") @db.VarChar(4) // '1' Contado | '2' Crédito
+  due_date                  DateTime? @db.Date
+  status                    String    @default("CONFIRMED") @db.VarChar(20) // DRAFT | CONFIRMED | CANCELLED
+  payment_status            String    @default("UNPAID") @db.VarChar(20) // UNPAID | PARTIALLY_PAID | PAID
+  requires_support_document Boolean   @default(false)
+  subtotal_cop              Int
+  discount_total_cop        Int       @default(0)
+  tax_total_cop             Int       @default(0)
+  withholding_tax_total_cop Int       @default(0)
+  grand_total_cop           Int
+  paid_total_cop            Int       @default(0)
+  items_json                Json      @db.JsonB
+  notes                     String?   @db.Text
+  occurred_at               DateTime  @default(now()) @db.Timestamptz(6)
+  created_by                String    @db.Uuid
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant                      Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch                      Branch                     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  supplier                    Supplier                   @relation(fields: [supplier_id], references: [id], onDelete: Restrict)
+  creator                     User                       @relation("ExpenseCreator", fields: [created_by], references: [id])
+  payments                    ExpensePayment[]
+  electronic_fiscal_documents ElectronicFiscalDocument[]
+
+  @@index([tenant_id, branch_id, status], name: "idx_expense_docs_status")
+  @@map("expense_documents")
+}
+
+model ExpensePayment {
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenant_id              String   @db.Uuid
+  branch_id              String   @db.Uuid
+  expense_id             String   @db.Uuid
+  method                 String   @db.VarChar(20) // CASH | POS_TERMINAL | MANUAL_TRANSFER
+  amount_cop             Int
+  cash_shift_movement_id String?  @db.Uuid
+  reference_note         String?  @db.VarChar(255)
+  status                 String   @default("APPROVED") @db.VarChar(20) // APPROVED | VOIDED
+  created_by             String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant              Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch              Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  expense             ExpenseDocument    @relation(fields: [expense_id], references: [id], onDelete: Cascade)
+  cash_shift_movement CashShiftMovement? @relation(fields: [cash_shift_movement_id], references: [id], onDelete: SetNull)
+  creator             User               @relation("ExpensePaymentCreator", fields: [created_by], references: [id])
+
+  @@map("expense_payments")
+}
+
+model ReceivedSupplierInvoice {
+  id                         String    @id @default(uuid()) @db.Uuid
+  tenant_id                  String    @db.Uuid
+  branch_id                  String    @db.Uuid
+  factus_reception_id        String    @db.VarChar(64)
+  track_id_or_cufe           String    @db.VarChar(128)
+  invoice_number             String    @db.VarChar(64)
+  supplier_nit               String    @db.VarChar(32)
+  supplier_name              String    @db.VarChar(255)
+  issue_date                 DateTime  @db.Date
+  total_cop                  Int
+  event_030_emitted_at       DateTime? @db.Timestamptz(6)
+  event_032_emitted_at       DateTime? @db.Timestamptz(6)
+  event_033_or_034_emitted_at DateTime? @db.Timestamptz(6)
+  completed_events           Boolean   @default(false)
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, track_id_or_cufe], name: "uq_received_supplier_invoices_cufe")
+  @@map("received_supplier_invoices")
+}
+
+model EmployeeProfile {
+  id                           String    @id @default(uuid()) @db.Uuid
+  tenant_id                    String    @db.Uuid
+  branch_id                    String    @db.Uuid
+  user_id                      String?   @unique @db.Uuid // Nullable para soportar personal de aseo/limpieza, logística, etc. sin login
+  employee_code                String    @db.VarChar(32)
+  job_title                    String    @db.VarChar(100)
+  department                   String?   @db.VarChar(100)
+  has_system_access            Boolean   @default(false)
+  identification_document_code String    @default("13") @db.VarChar(4)
+  identification_number        String    @db.VarChar(32)
+  first_name                   String    @db.VarChar(100)
+  first_surname                String    @db.VarChar(100)
+  second_surname               String?   @db.VarChar(100)
+  address                      String    @db.VarChar(255)
+  municipality_code            String    @default("66400") @db.VarChar(10)
+  email                        String?   @db.VarChar(255)
+  phone                        String?   @db.VarChar(32)
+  worker_type_code             String    @default("01") @db.VarChar(4)
+  worker_subtype               String    @default("00") @db.VarChar(4)
+  contract_type                String    @default("1") @db.VarChar(4)
+  has_integral_salary          Boolean   @default(false)
+  has_high_risk                Boolean   @default(false)
+  base_salary_cop              Int
+  receives_transport_allowance Boolean   @default(true)
+  entry_date                   DateTime  @db.Date
+  retirement_date              DateTime? @db.Date
+  payment_method_code          String    @default("42") @db.VarChar(4)
+  bank_name                    String?   @db.VarChar(100)
+  account_type                 String?   @db.VarChar(4)
+  account_number               String?   @db.VarChar(64)
+  is_active                    Boolean   @default(true)
+  created_at                   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch              Branch              @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  user                User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  payroll_settlements PayrollSettlement[]
+
+  @@unique([tenant_id, identification_number], name: "uq_employee_profiles_tenant_ident")
+  @@map("employee_profiles")
+}
+
+model PayrollSettlement {
+  id                           String    @id @default(uuid()) @db.Uuid
+  tenant_id                    String    @db.Uuid
+  branch_id                    String    @db.Uuid
+  employee_id                  String    @db.Uuid
+  reference_code               String    @db.VarChar(64)
+  year                         Int
+  month                        Int
+  payroll_period_code          String    @default("5") @db.VarChar(4)
+  days_worked                  Int
+  worked_salary_cop            Int
+  transport_allowance_cop      Int       @default(0)
+  commissions_cop              Int       @default(0)
+  overtime_and_surcharges_json Json      @default("[]") @db.JsonB
+  overtime_total_cop           Int       @default(0)
+  health_deduction_cop         Int
+  pension_deduction_cop        Int
+  other_deductions_cop         Int       @default(0)
+  gross_accrued_cop            Int
+  total_deductions_cop         Int
+  net_payable_cop              Int
+  payment_date                 DateTime  @db.Date
+  status                       String    @default("DRAFT") @db.VarChar(32) // DRAFT | VALIDATED_DIAN | REJECTED_DIAN | ANNULLED_BY_ADJUSTMENT
+  factus_payroll_number        String?   @db.VarChar(64) // ej. 'NEF110'
+  cune                         String?   @db.VarChar(128)
+  pdf_url                      String?   @db.Text
+  xml_url                      String?   @db.Text
+  response_payload_json        Json?     @db.JsonB
+  last_error_message           String?   @db.Text
+  created_by                   String    @db.Uuid
+  created_at                   DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch   Branch          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  employee EmployeeProfile @relation(fields: [employee_id], references: [id], onDelete: Restrict)
+  creator  User            @relation("PayrollCreator", fields: [created_by], references: [id])
+
+  @@unique([tenant_id, reference_code], name: "uq_payroll_settlements_reference")
+  @@index([tenant_id, branch_id, status], name: "idx_payroll_settlements_status")
+  @@map("payroll_settlements")
+}
+
 
 
 

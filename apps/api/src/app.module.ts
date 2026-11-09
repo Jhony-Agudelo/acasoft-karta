@@ -20,6 +20,10 @@ import { BillingSubscriptionModule } from './modules/billing-subscription/billin
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { DiningModule } from './modules/dining/dining.module';
 import { CashShiftsModule } from './modules/cash-shifts/cash-shifts.module';
+import { FactusIntegrationModule } from './modules/factus-integration/factus-integration.module';
+import { InvoicingModule } from './modules/invoicing/invoicing.module';
+import { FinanceModule } from './modules/finance/finance.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -53,6 +57,10 @@ import { UnifiedExceptionFilter } from './common/filters/unified-exception.filte
     ReportingModule,
     DiningModule,
     CashShiftsModule,
+    FactusIntegrationModule,
+    InvoicingModule,
+    FinanceModule,
+    PayrollModule,
   ],
   providers: [
     {

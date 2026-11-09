@@ -230,8 +230,8 @@ describe('Suite Unitaria Fase 05: TC-05-U01 a TC-05-U03 (Conciliación, Prelaci�
       expect(receiptText80.replace(/\s+/g, ' ')).toContain(
         DIAN_THERMAL_RECEIPT_DISCLAIMER.replace(/\s+/g, ' '),
       );
-      expect(receiptText80).toContain('Documento informativo de control interno');
-      expect(receiptText80).toContain('No sustituye la factura');
+      expect(receiptText80).toContain('Documento informativo de control');
+      expect(receiptText80).toContain('No sustituye la');
       expect(receiptText80).toContain('electrónica de venta');
 
       const receiptText58 = formatThermalReceiptText(sampleReceiptData, { width: '58mm' });
